@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사은품 입금 검증 시스템</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #f6f8fa;
+    --surface: #ffffff;
+    --surface2: #f6f8fa;
+    --border: #d0d7de;
+    --border2: #e8ecf0;
+    --accent: #0969da;
+    --accent-bg: #dbeafe;
+    --green: #1a7f37;
+    --green-bg: #dcfce7;
+    --yellow: #9a6700;
+    --yellow-bg: #fef9c3;
+    --red: #cf222e;
+    --red-bg: #fde8e8;
+    --gray: #57606a;
+    --gray-bg: #f6f8fa;
+    --text: #1f2328;
+    --text2: #57606a;
+    --text3: #afb8c1;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+
+  header .logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  header .subtitle {
+    color: var(--text2);
+    font-size: 12px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+    margin-left: 4px;
+  }
+
+  header .date-badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* 탭 */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .tab-btn {
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    background: transparent;
+    color: var(--text2);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .tab-btn:hover { color: var(--text); background: var(--surface2); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+
+  .panel { display: none; }
+  .panel.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* 카드 */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  /* 날짜 설정 */
+  .date-config {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.3px; }
+  .field-input {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 11px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+
+  /* 파일 업로드 */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 800px) { .upload-grid { grid-template-columns: 1fr; } }
+
+  .upload-zone {
+    background: var(--surface2);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    min-height: 100px;
+  }
+
+  .upload-zone:hover { border-color: var(--accent); background: var(--accent-bg); }
+  .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+  .upload-zone.loaded { border-color: var(--green); border-style: solid; background: var(--green-bg); }
+  .upload-zone.loaded:hover { border-color: var(--green); }
+
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    width: 100%; height: 100%; z-index: 10;
+  }
+
+  .upload-num {
+    display: inline-flex;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    position: relative; z-index: 1;
+    pointer-events: none;
+  }
+  .upload-zone.loaded .upload-num { background: var(--green); pointer-events: none; }
+
+  .upload-label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; position: relative; z-index: 1; pointer-events: none; }
+  .upload-status { font-size: 11px; color: var(--green); margin-top: 6px; font-weight: 600; position: relative; z-index: 1; pointer-events: none; }
+  .upload-status.err { color: var(--red); }
+
+  /* 버튼 */
+  .btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: #0860c8; }
+  .btn-primary:disabled { background: var(--border); border-color: var(--border); color: var(--text2); cursor: not-allowed; }
+  .btn-success { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-success:hover { background: #166a2e; }
+  .btn-success:disabled { background: var(--border); border-color: var(--border); color: var(--text2); cursor: not-allowed; }
+  .btn-outline { background: #fff; border-color: var(--border); color: var(--text); }
+  .btn-outline:hover { background: var(--surface2); border-color: var(--text2); }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  /* 통계 박스 */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+
+  .stat-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; font-weight: 500; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+  .stat-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .stat-value.blue { color: var(--accent); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.red { color: var(--red); }
+
+  /* 테이블 */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+  thead th {
+    background: var(--surface2);
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--text2);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f3f7fc; }
+
+  /* 배지 */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-blue { background: var(--accent-bg); color: var(--accent); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-gray { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--border); }
+
+  /* 경고 행 강조 */
+  .row-warn td { background: #fffbeb !important; }
+  .row-err td { background: #fef2f2 !important; }
+  .row-completed td { background: #f0fdf4 !important; }
+
+  /* 알림 */
+  .alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    border-width: 1px;
+    border-style: solid;
+  }
+  .alert-info { background: var(--accent-bg); border-color: #bfdbfe; color: #1e40af; }
+  .alert-warn { background: var(--yellow-bg); border-color: #fde68a; color: var(--yellow); }
+  .alert-red { background: var(--red-bg); border-color: #fecaca; color: var(--red); }
+
+  /* 필터 바 */
+  .filter-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+
+  .filter-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-weight: 500;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+  .search-input {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 11px;
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+
+  .count-text { font-size: 11px; color: var(--text2); margin-left: auto; }
+
+  /* 분리선 */
+  hr { border: none; border-top: 1px solid var(--border2); margin: 16px 0; }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* 검증 아이템 */
+  .verify-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    font-size: 12px;
+    border-width: 1px;
+    border-style: solid;
+  }
+  .verify-item.ok { background: var(--green-bg); border-color: #bbf7d0; }
+  .verify-item.warn { background: var(--yellow-bg); border-color: #fde68a; }
+  .verify-item.err { background: var(--red-bg); border-color: #fecaca; }
+
+  .verify-icon { font-size: 13px; margin-top: 1px; }
+  .verify-text { flex: 1; }
+  .verify-name { font-weight: 700; color: var(--text); }
+  .verify-detail { color: var(--text2); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 2px; }
+  .verify-issue { color: var(--red); font-size: 11px; margin-top: 3px; font-weight: 600; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text2);
+  }
+  .empty-state .icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-state p { font-size: 13px; }
+
+  .msg-text { font-size: 12px; color: var(--text2); }
+  .msg-text.ok { color: var(--green); font-weight: 600; }
+  .msg-text.err { color: var(--red); font-weight: 600; }
+
+  /* 섹션 헤더 */
+  .section-header {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">💰 사은품 입금 검증 시스템</div>
+  <div class="subtitle">웨이브넷 · 유통사업부</div>
+  <div class="date-badge" id="todayBadge">TODAY: ----</div>
+</header>
+
+<div class="main">
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-generate', this)">📋 사은품 파일 생성</button>
+    <button class="tab-btn" onclick="switchTab('tab-extra', this)">🎁 추천후기 · 상품권</button>
+    <button class="tab-btn" onclick="switchTab('tab-verify', this)">🔍 입금 검증</button>
+  </div>
+
+
+  <!-- ===== 탭2: 추천후기 · 롯데상품권 ===== -->
+  <div class="panel" id="tab-extra">
+
+    <!-- 추천후기 -->
+    <div class="card">
+      <div class="card-title">📣 추천후기 이체 파일 생성</div>
+      <div class="alert alert-info" style="margin-bottom:14px">
+        💡 <b>추천인</b> 기준 (주민번호·은행명·계좌번호·예금주) · 상부점=<b>우신</b> · 통장표시=<b>추천후기</b> · 연락처=전번뒷자리
+      </div>
+      <div class="upload-grid" style="grid-template-columns:1fr 1fr; max-width:640px">
+        <div class="upload-zone" id="zone-rec">
+          <input type="file" accept=".xlsx,.xls" onchange="handleExtraFile(event,'rec')">
+          <div class="upload-num" style="background:#8b5cf6">추</div>
+          <div class="upload-label">추천후기 엑셀 파일</div>
+          <div class="upload-status" id="status-rec"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;padding:0 8px">
+          <div style="font-size:12px;color:var(--text2)">• 헤더 2행 구조 자동 처리</div>
+          <div style="font-size:12px;color:var(--text2)">• <b>입금여부=O</b> 인 건만 추출</div>
+          <div style="font-size:12px;color:var(--text2)">• 추천인 정보로 이체 생성</div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-primary" onclick="generateRec()" id="btnRec" disabled>⚡ 추출 &amp; 미리보기</button>
+        <button class="btn btn-success" onclick="downloadExtraExcel('rec')" id="btnRecDown" disabled>📥 추천후기 엑셀 다운로드</button>
+        <span class="msg-text" id="recMsg"></span>
+      </div>
+    </div>
+
+    <!-- 추천후기 미리보기 -->
+    <div class="card" id="recPreviewCard" style="display:none">
+      <div class="card-title">👁️ 추천후기 미리보기</div>
+      <div class="stats-row" id="recStatsRow"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>추천인</th><th>은행</th><th>계좌</th><th>금액</th><th>예금주</th><th>주민번호</th><th>전번뒷자리</th><th>상부점</th></tr></thead>
+          <tbody id="recTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border2)">
+
+    <!-- 롯데상품권 -->
+    <div class="card">
+      <div class="card-title">🎫 롯데상품권 현금교환 이체 파일 생성</div>
+      <div class="alert alert-info" style="margin-bottom:14px">
+        💡 사은품은행·사은품계좌·금액·사은품예금주·주민번호·명의자연락처 · 상부점=<b>우신</b> · 통장표시=<b>인터넷사은금</b>
+      </div>
+      <div class="upload-grid" style="grid-template-columns:1fr 1fr; max-width:640px">
+        <div class="upload-zone" id="zone-lotte">
+          <input type="file" accept=".xlsx,.xls" onchange="handleExtraFile(event,'lotte')">
+          <div class="upload-num" style="background:#f97316">롯</div>
+          <div class="upload-label">롯데상품권 교환 리스트</div>
+          <div class="upload-status" id="status-lotte"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;padding:0 8px">
+          <div style="font-size:12px;color:var(--text2)">• <b>사은품계좌 공란</b>이면 입금X → 자동 제외</div>
+          <div style="font-size:12px;color:var(--text2)">• 계좌 있는 건 전부 이체 대상으로 추출</div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-primary" onclick="generateLotte()" id="btnLotte" disabled>⚡ 추출 &amp; 미리보기</button>
+        <button class="btn btn-success" onclick="downloadExtraExcel('lotte')" id="btnLotteDown" disabled>📥 상품권 엑셀 다운로드</button>
+        <span class="msg-text" id="lotteMsg"></span>
+      </div>
+    </div>
+
+    <!-- 롯데상품권 미리보기 -->
+    <div class="card" id="lottePreviewCard" style="display:none">
+      <div class="card-title">👁️ 롯데상품권 미리보기</div>
+      <div class="stats-row" id="lotteStatsRow"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>고객명</th><th>은행</th><th>계좌</th><th>금액</th><th>예금주</th><th>주민번호</th><th>연락처</th><th>상부점</th></tr></thead>
+          <tbody id="lotteTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="extraDbgCard" style="display:none">
+      <div class="card-title" style="cursor:pointer" onclick="toggleExtraDbg()">
+        🔧 디버그 로그 <span id="extraDbgBtn" style="font-size:11px;color:var(--accent)">[접기]</span>
+      </div>
+      <pre id="extraDbgConsole" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+    </div>
+  </div><!-- /tab-extra -->
+
+  <!-- ===== 탭1: 대량이체 파일 생성 ===== -->
+  <div class="panel active" id="tab-generate">
+
+    <div class="card">
+      <div class="card-title">⚙️ 기준일 설정</div>
+      <div class="date-config">
+        <div class="field-group">
+          <div class="field-label">오늘 날짜 (당일 기준)</div>
+          <input type="date" class="field-input" id="todayDate">
+        </div>
+        <div class="field-group">
+          <div class="field-label">협력 파일 지급예정일 (이번 주 일요일)</div>
+          <input type="date" class="field-input" id="sundayDate">
+        </div>
+      </div>
+      <div class="alert alert-info">
+        💡 <span>
+        <b>① 자점 파일</b>: 지급예정일 = 오늘 &nbsp;|&nbsp;
+        <b>② 협력 파일</b>: 지급예정일 = 이번주 일요일 &nbsp;|&nbsp;
+        <b>③ 개통 파일</b>: 개통일 ≤ 어제 + 접수경로=협력점 + 개통완료 + 지급예정 없는 건
+        </span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 로우데이터 파일 업로드</div>
+      <div class="upload-grid">
+        <div class="upload-zone" id="zone-jajeom">
+          <input type="file" accept=".xls,.xlsx" onchange="handleFile(event,'jajeom')">
+          <div class="upload-num">①</div>
+          <div class="upload-label">자점 파일</div>
+          <div class="upload-status" id="status-jajeom"></div>
+        </div>
+        <div class="upload-zone" id="zone-hyeomnyeok">
+          <input type="file" accept=".xls,.xlsx" onchange="handleFile(event,'hyeomnyeok')">
+          <div class="upload-num">②</div>
+          <div class="upload-label">협력 파일</div>
+          <div class="upload-status" id="status-hyeomnyeok"></div>
+        </div>
+        <div class="upload-zone" id="zone-gaetong">
+          <input type="file" accept=".xls,.xlsx" onchange="handleFile(event,'gaetong')">
+          <div class="upload-num">③</div>
+          <div class="upload-label">개통 파일</div>
+          <div class="upload-status" id="status-gaetong"></div>
+        </div>
+      </div>
+
+      <!-- 통장표시 선택 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;">
+        <span style="font-size:12px;font-weight:700;color:var(--text2);white-space:nowrap;">🏦 받는분 통장표시</span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:600;">
+          <input type="radio" name="bankMemo" value="인터넷사은금" checked onchange="state.bankMemo=this.value" style="accent-color:var(--accent)">
+          인터넷사은금
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:600;">
+          <input type="radio" name="bankMemo" value="추천후기" onchange="state.bankMemo=this.value" style="accent-color:var(--accent)">
+          추천후기
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="bankMemo" value="__custom__" onchange="state.bankMemo='__custom__';document.getElementById('bankMemoCustom').style.display='inline-block'" style="accent-color:var(--accent)">
+          직접입력
+        </label>
+        <input type="text" id="bankMemoCustom" placeholder="직접 입력..." maxlength="12"
+          style="display:none;border:1px solid var(--border);border-radius:5px;padding:5px 9px;font-size:12px;width:130px;outline:none;"
+          oninput="state.bankMemoCustomVal=this.value"
+          onfocus="document.querySelector('input[value=__custom__]').checked=true;state.bankMemo='__custom__'">
+        <span style="font-size:11px;color:var(--text3);margin-left:4px;">※ 최대 12자 · 대량이체 엑셀 7번 컬럼에 반영됩니다</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="processAndGenerate()" id="btnGenerate" disabled>
+          ⚡ 필터링 &amp; 미리보기
+        </button>
+        <button class="btn btn-success" onclick="downloadExcel('all')" id="btnDownload" disabled>
+          📥 전체 다운로드
+        </button>
+        <span class="msg-text" id="generateMsg"></span>
+      </div>
+      <!-- 상부점별 다운로드 -->
+      <div id="sangbuDownloadArea" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border2);">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📂 상부점별 개별 다운로드</div>
+        <div id="sangbuBtnRow" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+    </div>
+
+    <!-- 결과 미리보기 -->
+    <div class="card" id="previewCard" style="display:none">
+      <div class="card-title">👁️ 필터링 결과 미리보기</div>
+
+      <div class="stats-row" id="statsRow"></div>
+
+      <!-- 상부점별 합계 -->
+      <div id="sangbuSummaryArea" style="display:none; margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🏢 법인별 합계금액</div>
+        <div id="sangbuSummaryRow" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
+      <!-- 경고 목록 -->
+      <div id="warnSection" style="display:none">
+        <div class="alert alert-warn" id="warnSummary"></div>
+        <div class="table-wrap" style="margin-bottom:16px">
+          <table id="warnTable">
+            <thead>
+              <tr>
+                <th>구분</th><th>고객명</th><th>상품명</th><th>협력점</th><th>경고 사유</th>
+              </tr>
+            </thead>
+            <tbody id="warnTbody"></tbody>
+          </table>
+        </div>
+        <hr>
+      </div>
+
+      <!-- 제외 건 사유 섹션 -->
+      <div id="excludedSection" style="display:none; margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">
+            🚫 필터 제외 건 <span id="excludedCount" style="background:var(--red-bg);color:var(--red);padding:2px 8px;border-radius:10px;font-size:11px;margin-left:6px"></span>
+          </div>
+          <button class="btn btn-outline" onclick="toggleExcluded()" id="excludedToggleBtn" style="font-size:11px;padding:4px 10px">펼치기 ▼</button>
+        </div>
+        <div id="excludedBody" style="display:none">
+          <div class="alert alert-warn" style="margin-bottom:10px">
+            아래 건들은 필터 조건에 해당되지 않아 이체 리스트에서 제외됐습니다. 사유를 확인하고 필요 시 수동 처리하세요.
+          </div>
+          <div id="excludedGrouped"></div>
+        </div>
+      </div>
+
+      <!-- 대성 건 별도 섹션 -->
+      <div id="daesungArea" style="display:none; margin-bottom:16px; padding:16px; background:#fff7ed; border:1px solid #fed7aa; border-radius:8px;">
+        <div style="font-size:12px;font-weight:700;color:#f97316;margin-bottom:10px;">🏗️ 대성 건 (별도 지급 — 우리 법인 미지출)</div>
+        <div class="stats-row" id="daesungStats" style="margin-bottom:12px"></div>
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn" onclick="downloadExcel('대성')"
+            style="background:#fff7ed;border:1px solid #fed7aa;color:#f97316;font-weight:700;">
+            📥 대성 엑셀 다운로드
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>고객명</th><th>은행</th><th>계좌</th><th>금액</th><th>수취인</th><th>연락처</th><th>상부점(원본)</th><th>경고</th></tr>
+            </thead>
+            <tbody id="daesungTbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border2);margin:0 0 16px">
+
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterTable('all',this)">전체</button>
+        <button class="filter-btn" onclick="filterTable('jajeom',this)">자점</button>
+        <button class="filter-btn" onclick="filterTable('hyeomnyeok',this)">협력</button>
+        <button class="filter-btn" onclick="filterTable('gaetong',this)">개통</button>
+        <button class="filter-btn" onclick="filterTable('daesung',this)" style="border-color:#fed7aa;color:#c2410c;">대성</button>
+        <input type="text" class="search-input" placeholder="고객명 / 계좌 / 수취인 검색..." oninput="searchTable(this.value)">
+        <span class="count-text" id="tableCount"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="previewTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>구분</th>
+              <th>고객명</th>
+              <th>은행</th>
+              <th>계좌번호</th>
+              <th>금액</th>
+              <th>수취인</th>
+              <th>주민번호</th>
+              <th>연락처</th>
+              <th>상부점</th>
+              <th>개통일</th>
+              <th>지급예정</th>
+              <th>고객명(정제)</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="previewTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 디버그 패널 -->
+    <div class="card" id="dbgCard" style="display:none">
+      <div class="card-title" style="cursor:pointer" onclick="toggleDbg()">
+        🔧 필터 디버그 로그 <span id="dbgToggleBtn" style="margin-left:8px;font-size:11px;color:var(--accent)">[접기]</span>
+      </div>
+      <pre id="dbgConsole" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin:0"></pre>
+    </div>
+
+  </div><!-- /tab-generate -->
+
+  <!-- ===== 탭3: 입금 검증 ===== -->
+  <div class="panel" id="tab-verify">
+
+    <div class="card">
+      <div class="card-title">📂 검증용 파일 업로드</div>
+      <div class="alert alert-info" style="margin-bottom:14px">
+        💡 <b>최종 입금파일</b>(수기수정본)과 <b>입금완료 로우데이터</b>(어드민 지급완료 반영 건)를 비교합니다.<br>
+        잘못 입금된 건(로우에 없는데 입금됨)·미입금 건·금액이상 건을 자동으로 감지합니다.
+      </div>
+      <div class="upload-grid" style="grid-template-columns:1fr 1fr">
+        <div class="upload-zone" id="zone-vFinal">
+          <input type="file" accept=".xlsx,.xls" onchange="handleVerifyFinal(event)">
+          <div class="upload-num" style="background:#6366f1">입</div>
+          <div class="upload-label">최종 입금파일</div>
+          <div class="upload-hint" style="font-size:11px;color:var(--text2);margin-top:4px">수기수정 완료된 대량이체 파일</div>
+          <div class="upload-status" id="status-vFinal"></div>
+        </div>
+        <div class="upload-zone" id="zone-vRaw">
+          <input type="file" accept=".xlsx,.xls" onchange="handleVerifyRaw(event)">
+          <div class="upload-num" style="background:#059669">로</div>
+          <div class="upload-label">입금완료 로우데이터</div>
+          <div class="upload-hint" style="font-size:11px;color:var(--text2);margin-top:4px">어드민에서 지급완료 반영한 고객 목록</div>
+          <div class="upload-status" id="status-vRaw"></div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="runVerification()" id="btnVerify" disabled>
+          🔍 검증 실행
+        </button>
+        <span class="msg-text" id="verifyMsg"></span>
+      </div>
+    </div>
+
+    <div id="verifyResult" style="display:none">
+
+      <div class="stats-row" id="verifyStats"></div>
+
+      <!-- 잘못 입금 의심 -->
+      <div class="card">
+        <div class="card-title" style="color:var(--red)">🚨 잘못 입금 의심 (최종입금O → 로우X)</div>
+        <div class="alert alert-red" style="margin-bottom:10px">
+          최종 입금파일에는 있지만 어드민 로우데이터에 없는 건입니다. 일괄처리 오류로 잘못 입금됐을 가능성이 높습니다.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>수취인</th><th>은행</th><th>계좌번호</th><th>금액</th><th>상부점</th><th>통장표시</th></tr></thead>
+            <tbody id="wrongTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 금액 이상 건 -->
+      <div class="card">
+        <div class="card-title" style="color:var(--yellow)">⚠️ 금액 불일치 (입금금액 ≠ 로우금액)</div>
+        <div class="alert alert-warn" style="margin-bottom:10px">
+          계좌는 매칭됐지만 금액이 다른 건입니다. 수기수정 과정에서 금액이 변경됐거나 오입력된 경우입니다.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>수취인</th><th>계좌번호</th><th>입금금액</th><th>로우금액</th><th>차액</th><th>상부점</th></tr></thead>
+            <tbody id="amtMismatchTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 정상 매칭 + 미입금 2열 -->
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">✅ 정상 매칭 (계좌+금액 일치)</div>
+          <div id="okList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚠️ 이슈 (이름/금액 불일치)</div>
+          <div id="issueList"></div>
+        </div>
+      </div>
+
+      <!-- 미입금 건 - 전체폭 별도 카드 -->
+      <div class="card">
+        <div class="card-title">📋 미입금 건 (로우O → 최종입금X)</div>
+        <div class="alert alert-info" style="margin-bottom:8px;font-size:11px">
+          로우에는 있지만 최종 입금파일에 없는 건 (의도적 제외 or 누락) — 전체 표시
+        </div>
+        <div id="notPaidList"></div>
+      </div>
+
+    </div>
+
+  </div><!-- /tab-verify -->
+
+</div><!-- /main -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ============================================================
+// 디버그 로그
+// ============================================================
+const _dbgLogs = [];
+function dbgLog(msg) {
+  const t = new Date().toLocaleTimeString('ko-KR');
+  _dbgLogs.push(`[${t}] ${msg}`);
+  ['dbgConsole','extraDbgConsole'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = _dbgLogs.slice(-30).join('\n'); el.scrollTop = el.scrollHeight; }
+  });
+}
+function toggleExtraDbg() {
+  const pre = document.getElementById('extraDbgConsole');
+  const btn = document.getElementById('extraDbgBtn');
+  if (!pre) return;
+  if (pre.style.display==='none') { pre.style.display='block'; btn.textContent='[접기]'; }
+  else { pre.style.display='none'; btn.textContent='[펼치기]'; }
+}
+
+// ============================================================
+// 상부점 매핑 테이블
+// ============================================================
+const SANGBU_MAP = {
+  '1.무KT-우리(유심)(월☆통말)': '우신',
+  '1.무SKY-우리(월☆통25)': '우리',
+  '1.유KT-우리(도매)(동판O)': '우신',
+  '1.유KT-우리(온라인)(월☆통15)': '우신',
+  '1.유KT-우리(유선기타)(월☆통15)': '우신',
+  '1.유SKY-우리(월☆통25)': '우리',
+  '2.렌탈SK매직-우성(월☆통말)': '우성',
+  '2.무SKT-우성(1702)(월☆통말)': '우성',
+  '2.무SKT-우성(1706)(월☆통말)': '우성',
+  '2.유SKT-우성(1702)(월☆통말)': '우성',
+  '2.유SKT-우성(1706)(월☆통말)': '우성',
+  '3.무KT-우신(기기)(월☆통말)': '우신',
+  '3.무KT-우신(유심)(월☆통말)': '우신',
+  '3.유KT-우신(시연)(월☆통말)': '우신',
+  '3.유KT-우신(유선기타)(월☆통20)': '우신',
+  '3.유KT-우신(현장)(월☆통말)': '우신',
+  '3.유SKY-우신(월☆통25)': '우신',
+  '3.유SKY-우신_듀얼(월☆통말)': '우신',
+  '4.유KT-인터비즈(월☆통25)': '우신',
+  '5.무KT-대성_강남(월☆통20)': '대성',
+  '5.무KT-대성_분당(월☆통20)': '대성',
+  '5.무KT-대성_수원(월☆통20)': '대성',
+  '5.무KT-대성_평택(월☆통20)': '대성',
+  '5.유KT-대성_강남(월☆통20)': '대성',
+  '5.유KT-대성_분당(월☆통20)': '대성',
+  '5.유KT-대성_수원(월☆통20)': '대성',
+  '5.유KT-대성_평택(월☆통20)': '대성',
+  '5.유SKY-대성_듀얼(월☆통말)': '대성',
+  '6.무SKB-웨이브넷(월☆통말)': '웨이브넷',
+  '6.유SKB-웨이브넷(월☆통말)': '웨이브넷',
+  'CS프로(주★통금)': '웨이브넷',
+  'HC글로벌(주★통금)': '웨이브넷',
+  'KT라인/그린파머(월☆통말)': '웨이브넷',
+  'M&S무선(월☆통초)': '웨이브넷',
+  'P&S무선(월☆통초)': '웨이브넷',
+  'WNDF무선(월☆통초)': '웨이브넷',
+  '광합성(주★통금)': '웨이브넷',
+  '나주)기가통신(월☆통말)': '웨이브넷',
+  '넷플러스컴퍼니(주★통금)': '웨이브넷',
+  '다음네트웍스(월☆통말)': '웨이브넷',
+  '대성토스': '대성',
+  '더베이스(월☆30일)': '웨이브넷',
+  '드림네트웍스(주★통금)': '웨이브넷',
+  '드림중고폰': '웨이브넷',
+  '디컴스(월☆통15)': '웨이브넷',
+  '메가월드(월☆통25)': '웨이브넷',
+  '밀레니엄(월☆통말)': '웨이브넷',
+  '백메가KT(주★통금)': '웨이브넷',
+  '백메가SKB(주★통금)': '웨이브넷',
+  '백메가SKY(주★통금)': '웨이브넷',
+  '베스트원(주★통금)': '웨이브넷',
+  '비엠티(월☆통말)': '웨이브넷',
+  '빌리고(월☆통말)': '웨이브넷',
+  '새로(주★통금)': '웨이브넷',
+  '새용마(주★통금)': '웨이브넷',
+  '서현소프트(월☆통10)': '웨이브넷',
+  '성림_마운틴(주★통금)': '웨이브넷',
+  '소망텔레콤무선(월☆통5~10)': '웨이브넷',
+  '스마일(주★통금)': '웨이브넷',
+  '스마트다올(월☆통말)': '웨이브넷',
+  '스마트모바일무선(월☆통20)': '웨이브넷',
+  '시온정보통신(주★통금)': '웨이브넷',
+  '아신소프트(주★통금)': '웨이브넷',
+  '아진정보통신(월☆통20)': '웨이브넷',
+  '애니베스트(월☆통말)': '웨이브넷',
+  '엠제이(주★통금)': '웨이브넷',
+  '엠제이LG(주★통금)': '웨이브넷',
+  '엠제이SKB(주★통금)': '웨이브넷',
+  '엠제이SKY(주★통금)': '웨이브넷',
+  '엠제이토스(주★통금)': '웨이브넷',
+  '온플통신(월☆말일)': '웨이브넷',
+  '와이드넷(주★통금)': '웨이브넷',
+  '와이즐리_KT_비엠티(월☆통말)': '웨이브넷',
+  '와이즐리_LG_US그룹(월☆통말)': '웨이브넷',
+  '와이즐리_SK_HC글로벌(월☆통말)': '웨이브넷',
+  '와이즐리_SK_밀레니엄(월☆통말)': '웨이브넷',
+  '원넷(티에스피씨-다회선)(월☆통말)': '웨이브넷',
+  '유에스그룹(주★통금)': '웨이브넷',
+  '유주(주★통금)': '웨이브넷',
+  '유피통신(주★통금)': '웨이브넷',
+  '인터넷매니저': '웨이브넷',
+  '일구통신(월☆15일)': '웨이브넷',
+  '자이언트(주★통금)': '웨이브넷',
+  '제로스톤(월☆통말)': '웨이브넷',
+  '제이엠비즈(주★통금)': '웨이브넷',
+  '지엠컴퍼니(주★통금)': '웨이브넷',
+  '케이티텔레캅(월☆통25)': '웨이브넷',
+  '타임(주★통금)': '웨이브넷',
+  '티에스피씨(주★통금)': '웨이브넷',
+  '플라츠(주★통금)': '웨이브넷',
+  '한결위드(월☆통말)': '웨이브넷',
+  '한통(월☆통20)': '웨이브넷',
+  '해피넷(주★통금)': '웨이브넷',
+  '홈앤비즈(주★통금)': '웨이브넷',
+  '홈앤서비스_남인천(월☆통말)': '웨이브넷',
+  '화승(주★통금)': '웨이브넷',
+  '휴본(월☆통말)': '웨이브넷',
+  '휴이넘코리아(정산X)': '웨이브넷',
+};
+
+function resolveSangbu(rawVal) {
+  if (!rawVal) return '확인필요';
+  const v = String(rawVal).trim();
+  if (v === '0.기타' || v === '기타') return '상부점 확인필요';
+  if (SANGBU_MAP[v]) return SANGBU_MAP[v];
+  return '확인필요';
+}
+
+// ============================================================
+// 상태
+// ============================================================
+const state = {
+  jajeom: null, hyeomnyeok: null, gaetong: null,
+  completed: null,
+  verifyFiles: { v1: null, v2: null, v3: null },
+  vFinalData: null,  // 최종 입금파일
+  vRawData: null,    // 입금완료 로우데이터
+  filtered: [], warns: [], excluded: [],
+  daesungFiltered: [],  // 대성 건 별도 목록
+  currentFilter: 'all', searchQuery: '',
+  bankMemo: '인터넷사은금',
+  bankMemoCustomVal: '',
+  // 추가 입금 유형
+  recData: null,      // 추천후기 원본
+  recFiltered: [],    // 추천후기 이체 대상
+  lotteData: null,    // 롯데상품권 원본
+  lotteFiltered: [],  // 롯데상품권 이체 대상
+};
+
+// ============================================================
+// 추천후기 · 롯데상품권 처리
+// ============================================================
+
+async function parseRecFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const data = [];
+        for (let i = 2; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.every(v => v === '')) continue;
+          data.push({
+            유형: String(r[0]??''), 금액: r[4]??0,
+            피추천인고객명: String(r[5]??''), 피추천인전번: String(r[6]??''), 피추천인주민번호: String(r[7]??''),
+            추천인고객명: String(r[8]??''), 추천인전번: String(r[9]??''), 추천인주민번호: String(r[10]??''),
+            은행명: String(r[11]??''), 계좌번호: String(r[12]??''), 예금주: String(r[13]??''), 입금여부: String(r[16]??''),
+          });
+        }
+        resolve(data);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function handleExtraFile(event, key) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById(`status-${key}`);
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = key === 'rec' ? await parseRecFile(file) : await parseNormalXls(file);
+    if (key === 'rec') { state.recData = data; document.getElementById('btnRec').disabled = false; }
+    else { state.lotteData = data; document.getElementById('btnLotte').disabled = false; }
+    document.getElementById(`zone-${key}`).classList.add('loaded');
+    status.textContent = `✅ ${data.length}건 로드됨`;
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`; status.className = 'upload-status err';
+  }
+}
+
+function generateRec() {
+  const raw = state.recData;
+  if (!raw) { alert('파일을 먼저 업로드해주세요.'); return; }
+  const result = [];
+  for (const row of raw) {
+    if (s(row['입금여부']).trim() === '입금여부') continue;
+    if (s(row['입금여부']).trim().toUpperCase() !== 'O') continue;
+    const amt=parseAmount(s(row['금액'])), bank=s(row['은행명']).trim(), acc=cleanAccount(s(row['계좌번호']));
+    const name=s(row['예금주']).trim(), idno=s(row['추천인주민번호']).trim();
+    const phone=s(row['추천인전번']).trim(), rname=s(row['추천인고객명']).trim();
+    if (!acc || amt <= 0) continue;
+    result.push({ 추천인:rname, 은행:bank, 계좌번호:acc, 금액:amt, 수취인:name, 주민번호:idno, 연락처:phone, 상부점:'우신' });
+  }
+  state.recFiltered = result;
+  document.getElementById('recPreviewCard').style.display = 'block';
+  document.getElementById('btnRecDown').disabled = result.length === 0;
+  const total = result.reduce((a,r)=>a+r.금액,0);
+  document.getElementById('recStatsRow').innerHTML = `<div class="stat-box"><div class="stat-label">이체 건수</div><div class="stat-value blue">${result.length}</div></div><div class="stat-box"><div class="stat-label">총 금액</div><div class="stat-value green" style="font-size:15px">${total.toLocaleString()}</div><div class="stat-sub">원</div></div>`;
+  document.getElementById('recTbody').innerHTML = result.map((r,i)=>`<tr><td class="mono" style="color:var(--text3)">${i+1}</td><td><b>${r.추천인}</b></td><td>${r.은행}</td><td class="mono">${r.계좌번호}</td><td class="mono" style="color:var(--green);font-weight:700">${r.금액.toLocaleString()}</td><td>${r.수취인}</td><td class="mono" style="color:var(--text2)">${r.주민번호}</td><td class="mono" style="color:var(--text2)">${r.연락처}</td><td><span class="badge badge-gray">우신</span></td></tr>`).join('');
+  document.getElementById('recMsg').textContent = `${result.length}건 추출 완료`;
+  document.getElementById('recMsg').className = 'msg-text ok';
+}
+
+function generateLotte() {
+  const raw = state.lotteData;
+  if (!raw) { alert('파일을 먼저 업로드해주세요.'); return; }
+  if (document.getElementById('extraDbgCard')) document.getElementById('extraDbgCard').style.display='block';
+  dbgLog(`[롯데] 로드된 데이터: ${raw.length}건, 첫행키: ${Object.keys(raw[0]||{}).join(',')}`);
+  if (raw.length > 0) { const r0=raw[0]; dbgLog(`[롯데] 1행 계좌=${JSON.stringify(r0['사은품계좌'])}, 금액=${JSON.stringify(r0['금액'])}`); }
+  const result = [];
+  try {
+    for (const row of raw) {
+      const bank=s(row['사은품은행']).trim(), acc=cleanAccount(s(row['사은품계좌']));
+      const amt=parseAmount(s(row['금액'])), name=s(row['사은품예금주']).trim();
+      const idno=s(row['주민번호']).trim(), phone=cleanPhone(s(row['명의자 연락처'])), cust=s(row['고객명']).trim();
+      if (!acc || acc===''||acc==='-') continue;
+      if (amt<=0) continue;
+      result.push({ 고객명:cust, 은행:bank, 계좌번호:acc, 금액:amt, 수취인:name, 주민번호:idno, 연락처:phone, 상부점:'우신' });
+    }
+  } catch(err) { dbgLog(`[롯데 오류] ${err.message}`); alert('오류: '+err.message); return; }
+  dbgLog(`[롯데] 필터 통과: ${result.length}건`);
+  state.lotteFiltered = result;
+  document.getElementById('lottePreviewCard').style.display = 'block';
+  document.getElementById('btnLotteDown').disabled = result.length === 0;
+  const total = result.reduce((a,r)=>a+r.금액,0);
+  document.getElementById('lotteStatsRow').innerHTML = `<div class="stat-box"><div class="stat-label">이체 건수</div><div class="stat-value blue">${result.length}</div></div><div class="stat-box"><div class="stat-label">총 금액</div><div class="stat-value green" style="font-size:15px">${total.toLocaleString()}</div><div class="stat-sub">원</div></div><div class="stat-box"><div class="stat-label">상부점</div><div class="stat-value" style="font-size:15px">우신</div></div>`;
+  document.getElementById('lotteTbody').innerHTML = result.map((r,i)=>`<tr><td class="mono" style="color:var(--text3)">${i+1}</td><td><b>${r.고객명}</b></td><td>${r.은행}</td><td class="mono">${r.계좌번호}</td><td class="mono" style="color:var(--green);font-weight:700">${r.금액.toLocaleString()}</td><td>${r.수취인}</td><td class="mono" style="color:var(--text2)">${r.주민번호}</td><td class="mono" style="color:var(--text2)">${r.연락처}</td><td><span class="badge badge-gray">우신</span></td></tr>`).join('');
+  document.getElementById('lotteMsg').textContent = `${result.length}건 추출 완료`;
+  document.getElementById('lotteMsg').className = 'msg-text ok';
+}
+
+function downloadExtraExcel(type) {
+  const todayStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const wb = XLSX.utils.book_new();
+  const HEADER = ['은행','계좌','금액','수취인','주민번호','연락처','받는분통장표시','상부점'];
+  const COLS = [{wch:12},{wch:22},{wch:10},{wch:12},{wch:16},{wch:14},{wch:10},{wch:8}];
+  const isRec = type==='rec';
+  const rows = isRec ? state.recFiltered : state.lotteFiltered;
+  const memo = isRec ? '추천후기' : '인터넷사은금';
+  const filename = isRec ? `추천후기이체_${todayStr}.xlsx` : `상품권이체_${todayStr}.xlsx`;
+  if (!rows||!rows.length) return;
+  const data = rows.map(r=>({'은행':r.은행,'계좌':r.계좌번호,'금액':r.금액,'수취인':r.수취인,'주민번호':r.주민번호,'연락처':r.연락처,'받는분통장표시':memo,'상부점':r.상부점}));
+  const ws = XLSX.utils.json_to_sheet(data, {header:HEADER});
+  ws['!cols'] = COLS;
+  XLSX.utils.book_append_sheet(wb, ws, isRec?'추천후기':'상품권');
+  XLSX.writeFile(wb, filename);
+}
+
+// ============================================================
+// 날짜
+// ============================================================
+function initDates() {
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  document.getElementById('todayDate').value = fmt(today);
+  document.getElementById('todayBadge').textContent = `TODAY: ${fmt(today)}`;
+  const dow = today.getDay();
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() + (dow === 0 ? 7 : 7 - dow));
+  document.getElementById('sundayDate').value = fmt(sunday);
+  // 검증탭 날짜도 동기화
+  const vt = document.getElementById('vTodayDate');
+  const vs = document.getElementById('vSundayDate');
+  if (vt) vt.value = fmt(today);
+  if (vs) vs.value = fmt(sunday);
+}
+
+// ============================================================
+// 탭 전환
+// ============================================================
+function switchTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(id);
+  panel.style.display = 'block';
+  panel.classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// HTML XLS 파싱 (EUC-KR)
+// ============================================================
+async function parseHtmlXls(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const bytes = new Uint8Array(e.target.result);
+        const html = new TextDecoder('euc-kr').decode(bytes);
+
+        // DOMParser 미사용 - 정규식 직접 파싱 (브라우저 재배치 이슈 완전 회피)
+        const stripTags = s => s.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&gt;/g,'>').replace(/&lt;/g,'<').replace(/&nbsp;/g,' ').trim();
+        const cellRe = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
+        const rowRe  = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+
+        const rows = [];
+        let rowMatch;
+        while ((rowMatch = rowRe.exec(html)) !== null) {
+          const cells = [];
+          let cellMatch;
+          const cellRe2 = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
+          while ((cellMatch = cellRe2.exec(rowMatch[1])) !== null) {
+            cells.push(stripTags(cellMatch[1]));
+          }
+          if (cells.some(c => c)) rows.push(cells);
+        }
+
+        if (rows.length < 2) { resolve([]); return; }
+
+        const headers = rows[0];
+        const data = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = {};
+          headers.forEach(h => { row[h] = ''; });
+          rows[i].forEach((v, j) => { if (j < headers.length) row[headers[j]] = v; });
+          if (Object.values(row).some(v => v)) data.push(row);
+        }
+        resolve(data);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+async function parseNormalXls(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        // 컬럼명 앞뒤 공백 trim (엑셀 헤더에 공백이 있는 경우 대응)
+        const data = raw.map(row => {
+          const cleaned = {};
+          Object.keys(row).forEach(k => { cleaned[k.trim()] = row[k]; });
+          return cleaned;
+        });
+        resolve(data);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function parseAuto(file) {
+  // 1단계: 매직바이트로 파일 포맷 확인
+  const headerBuf = await file.slice(0, 8).arrayBuffer();
+  const headerBytes = new Uint8Array(headerBuf);
+  const hex8 = Array.from(headerBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  // 실제 바이너리 XLS (OLE2 Compound Document): D0 CF 11 E0
+  if (hex8.startsWith('d0cf11e0')) {
+    return await parseNormalXls(file);
+  }
+  // XLSX (ZIP): PK
+  if (hex8.startsWith('504b')) {
+    return await parseNormalXls(file);
+  }
+  // 알 수 없는 바이너리 포맷 (BMS DocuRay 등 암호화/특수포맷): 첫 바이트가 ASCII 범위 밖
+  // 첫 4바이트가 printable ASCII가 아니고 HTML 태그도 아니면 오류
+  const first4 = String.fromCharCode(...headerBytes.slice(0,4));
+  const looksLikeBinary = headerBytes.slice(0,4).some(b => b < 9 || (b > 13 && b < 32));
+
+  // 2단계: 텍스트로 읽어서 HTML 여부 확인
+  const textStart = await file.slice(0, 500).arrayBuffer();
+  const txt = new TextDecoder('utf-8', { fatal: false }).decode(textStart).toLowerCase();
+
+  if (txt.includes('<html') || txt.includes('<meta') || txt.includes('content-type') || txt.includes('charset')) {
+    return await parseHtmlXls(file);
+  }
+
+  // 3단계: 알 수 없는 포맷 -> 오류 발생시켜 사용자에게 알림
+  if (looksLikeBinary) {
+    throw new Error('지원되지 않는 파일 형식입니다. 암호화된 파일이거나 DocuRay 등 특수 포맷일 수 있습니다. 일반 XLS/XLSX 형식으로 다시 저장 후 업로드해주세요.');
+  }
+
+  return await parseNormalXls(file);
+}
+
+// ============================================================
+// 파일 업로드
+// ============================================================
+// 파일에서 지급예정일 최빈값 자동 감지
+function detectJigeupDate(data) {
+  const freq = {};
+  for (const row of data) {
+    const v = s(row['지급예정']).trim();
+    if (v && v !== '-' && v !== '0' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      freq[v] = (freq[v] || 0) + 1;
+    }
+  }
+  const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+  return sorted.length ? sorted[0][0] : null;
+}
+
+async function handleFile(event, key) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById(`status-${key}`);
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = await parseAuto(file);
+    state[key] = data;
+    document.getElementById(`zone-${key}`).classList.add('loaded');
+
+    // 자동 날짜 감지
+    const detectedDate = detectJigeupDate(data);
+    let dateMsg = '';
+    if (key === 'jajeom' && detectedDate) {
+      document.getElementById('todayDate').value = detectedDate;
+      dateMsg = ` → 기준일 자동설정: ${detectedDate}`;
+    } else if (key === 'hyeomnyeok' && detectedDate) {
+      document.getElementById('sundayDate').value = detectedDate;
+      dateMsg = ` → 협력기준일 자동설정: ${detectedDate}`;
+    }
+
+    status.textContent = `✅ ${data.length}건 로드됨${dateMsg}`;
+    checkGenerateReady();
+    dbgLog(`[파일로드:${key}] ${data.length}건, 날짜감지=${detectedDate||'없음'}`);
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`;
+    status.className = 'upload-status err';
+    dbgLog(`[파일로드오류:${key}] ${err.message}`);
+  }
+}
+
+async function handleNormalFile(event, key) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById(`status-${key}`);
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = await parseNormalXls(file);
+    state[key] = data;
+    document.getElementById(`zone-${key}`).classList.add('loaded');
+    status.textContent = `✅ ${data.length}건 로드됨`;
+    checkVerifyReady();
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`; status.className = 'upload-status err';
+  }
+}
+
+async function handleVerifyFile(event, vkey) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById(`status-${vkey}`);
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = await parseAuto(file);
+    state.verifyFiles[vkey] = data;
+    document.getElementById(`zone-${vkey}`).classList.add('loaded');
+    // 날짜 자동감지 (검증탭)
+    const detected = detectJigeupDate(data);
+    let dateMsg = '';
+    if (vkey === 'v1' && detected) {
+      document.getElementById('vTodayDate').value = detected;
+      dateMsg = ` → 자점기준일: ${detected}`;
+    } else if (vkey === 'v2' && detected) {
+      document.getElementById('vSundayDate').value = detected;
+      dateMsg = ` → 협력기준일: ${detected}`;
+    }
+    status.textContent = `✅ ${data.length}건 로드됨${dateMsg}`;
+    checkVerifyReady();
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`; status.className = 'upload-status err';
+  }
+}
+
+function checkGenerateReady() {
+  const ok = state.jajeom || state.hyeomnyeok || state.gaetong;
+  document.getElementById('btnGenerate').disabled = !ok;
+}
+
+function checkVerifyReady() {
+  document.getElementById('btnVerify').disabled = !(state.vFinalData && state.vRawData);
+}
+
+// ============================================================
+// 헬퍼
+// ============================================================
+function parseDate(val) {
+  if (!val) return null;
+  const s = String(val).trim().split(' ')[0];
+  if (!s || s === '-' || s === '0') return null;
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+const pad = n => String(n).padStart(2,'0');
+const fmt = d => d ? `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` : '';
+
+// 안전 문자열 변환: undefined/null/숫자 모두 처리
+function s(v) { return v == null ? '' : String(v); }
+
+// 고객명 특수기호 제거 - 이름만 추출
+// "홍길동/OSS/ㅇㄱ" → "홍길동", "김민정/쿠폰" → "김민정"
+function cleanName(raw) {
+  if (!raw) return '';
+  const base = s(raw).split('/')[0];  // 슬래시 앞부분만
+  return base.replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
+}
+function cleanPhone(v) { return s(v).replace(/[-\s]/g,''); }
+function cleanAccount(v) { return s(v).replace(/[-\s]/g,''); }
+function parseAmount(v) { return parseInt(s(v).replace(/[,\s]/g,''))||0; }
+function isBlank(v) { const t = s(v).trim(); return !t || t === '-' || t === '0'; }
+
+// ============================================================
+// 행 → 이체 객체 변환
+// ============================================================
+function rowToTransfer(row, source) {
+  const bank        = s(row['사은품은행']).trim();
+  const account     = cleanAccount(row['사은품계좌']);
+  const amount      = parseAmount(row['현금']);
+  const recipient   = s(row['사은품예금주']).trim();
+  const idNo        = s(row['사은품주민번호']).trim();
+  const phone       = cleanPhone(row['명의자 연락처']);
+  const sangbuRaw   = s(row['상부점']).trim();
+  // 대성 건: 상부점 강제로 '대성'
+  const sangbu      = isDaesung(row) ? '대성' : resolveSangbu(sangbuRaw);
+  const sangbuOk    = sangbu !== '확인필요' && sangbu !== '상부점 확인필요';
+
+  // ---- 경고 수집 ----
+  const warnings = [];
+  try {
+    // 공란 체크 (은행/계좌/금액/수취인/주민번호/연락처)
+    const checkFields = [
+      ['사은품은행', bank], ['사은품계좌', account],
+      ['현금', row['현금']], ['사은품예금주', recipient],
+      ['사은품주민번호', idNo], ['명의자 연락처', row['명의자 연락처']],
+    ];
+    const blankFields = checkFields.filter(([,v]) => isBlank(v)).map(([k]) => k);
+    if (blankFields.length) {
+      // 계좌/은행/예금주 공란인데 현금 금액이 있는 경우 → 입금 불가 (검증 누락 위험)
+      const hasAmt = parseAmount(s(row['현금'])) > 0;
+      const hasAccBlank = isBlank(account) || isBlank(bank) || isBlank(recipient);
+      if (hasAmt && hasAccBlank) {
+        warnings.push({ type: '입금정보 공란', msg: `금액(${parseAmount(s(row['현금'])).toLocaleString()}원)은 있으나 계좌정보 공란: ${blankFields.join(', ')}` });
+      } else {
+        warnings.push({ type: '확인필요', msg: `공란: ${blankFields.join(', ')}` });
+      }
+    }
+
+    // 지급완료 날짜 체크
+    const jigeupWanlyo = s(row['지급완료']).trim();
+    if (jigeupWanlyo && jigeupWanlyo !== '-' && jigeupWanlyo !== '0' && jigeupWanlyo !== '') {
+      warnings.push({ type: '지급예정일 반영', msg: `지급완료: ${jigeupWanlyo}` });
+    }
+
+    // 상부점 확인
+    if (!sangbuOk) warnings.push({ type: sangbu, msg: `상부점 원본값: ${sangbuRaw}` });
+
+    // 법인사업자 체크
+    const corpKeywords = ['(주)', '주식회사', '(유)', '유한회사', '(합)', '합자회사', '(사)', '사단법인', '재단법인'];
+    const isCorp = corpKeywords.some(kw => recipient.includes(kw));
+    if (isCorp) warnings.push({ type: '개인계좌 확인필요', msg: `예금주: ${recipient}` });
+
+    // ■/□ 협력점 → 접수경로 '판매점' 확인
+    const hyeomnyeokNm = s(row['협력점']).trim();
+    const gyeonno      = s(row['접수경로']).trim();
+    if ((hyeomnyeokNm.includes('\u25A0') || hyeomnyeokNm.includes('\u25A1')) &&
+        !gyeonno.includes('판매점')) {
+      warnings.push({ type: '접수경로 오류', msg: `■/□ 협력점인데 접수경로='${gyeonno}' (판매점이어야 함)` });
+    }
+
+    // 대성 건: 접점코드가 '대성(상권사업부)' 아니면 오류 (1차 데이터 입력 시 확인)
+    if (isDaesung(row)) {
+      const jeopjeomCode = s(row['접점코드']).trim();
+      if (!jeopjeomCode.includes('대성(상권사업부)')) {
+        warnings.push({
+          type: '접점코드 오류',
+          msg: `대성 건인데 접점코드 미등록 (현재: '${jeopjeomCode || '없음'}', 필요: '대성(상권사업부)')`
+        });
+      }
+      // 지급완료 찍혀있으면 오류 (3번)
+      const jigeupWanlyoCheck = s(row['지급완료']).trim();
+      if (jigeupWanlyoCheck && jigeupWanlyoCheck !== '-' && jigeupWanlyoCheck !== '0' && jigeupWanlyoCheck !== '') {
+        warnings.push({
+          type: '대성 지급완료 오류',
+          msg: `대성 건에 지급완료 반영됨: ${jigeupWanlyoCheck}`
+        });
+      }
+    }
+
+    // 개통기한 초과 체크: 개통일 > 개통기한 이면 경고
+    const gaetongIlStr    = s(row['개통일']).trim().split(' ')[0];
+    const gaetongKihanStr = s(row['개통기한']).trim().split(' ')[0];
+    if (gaetongIlStr && gaetongKihanStr && gaetongKihanStr !== '-' && gaetongKihanStr !== '0') {
+      const gaetongIlDate = new Date(gaetongIlStr);
+      const kihanDate     = new Date(gaetongKihanStr);
+      gaetongIlDate.setHours(0,0,0,0);
+      kihanDate.setHours(0,0,0,0);
+      if (gaetongIlDate > kihanDate) {
+        warnings.push({ type: '개통기한 초과', msg: `개통일(${gaetongIlStr}) > 개통기한(${gaetongKihanStr})` });
+      }
+    }
+  } catch(e) { /* 경고 수집 실패 무시 */ }
+
+  return {
+    source: isDaesung(row) ? 'daesung' : source,
+    고객명: s(row['고객명']).trim(),
+    고객명_clean: cleanName(row['고객명']),  // 특수기호 제거 이름
+    상품명: s(row['상품명']).trim(),
+    협력점: (s(row['협력점']) || s(row['접점코드'])).trim(),
+    은행: bank,
+    계좌번호: account,
+    금액: amount,
+    수취인: recipient,
+    주민번호: idNo,
+    연락처: phone,
+    상부점원본: sangbuRaw,
+    상부점: sangbu,
+    개통일: s(row['개통일']),
+    지급예정: s(row['지급예정']),
+    개통상태: s(row['개통상태']).trim(),
+    접수경로: s(row['접수경로']).trim(),
+    사은품지급처: s(row['사은품 지급처']).trim(),
+    warnings,
+    _raw: row,
+  };
+}
+
+// ============================================================
+// 필터링 & 생성
+// ============================================================
+function processAndGenerate() {
+  try {
+  const todayStr  = document.getElementById('todayDate').value;
+  const sundayStr = document.getElementById('sundayDate').value;
+  if (!todayStr) { alert('오늘 날짜를 입력해주세요.'); return; }
+  dbgLog(`[필터시작] today=${todayStr}, sunday=${sundayStr}`);
+  dbgLog(`[로드현황] 자점=${state.jajeom?.length||0}건, 협력=${state.hyeomnyeok?.length||0}건, 개통=${state.gaetong?.length||0}건`);
+
+  const today   = new Date(todayStr);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const sunday  = sundayStr ? new Date(sundayStr) : null;
+
+  const result = [];
+  const warns  = [];
+  const excluded = [];   // 필터 제외 건 + 사유
+
+  // ① 자점: 지급예정 = 오늘, 개통완료, 웨이브넷지급
+  if (state.jajeom) {
+    for (const row of state.jajeom) {
+      const fcResult = filterCommon(row);
+      if (fcResult !== true) { excluded.push({ row, source:'자점', reason: fcResult, reasonType:'공통' }); continue; }
+      // 자점 전용: 지급예정일 = 오늘
+      const jigeup = parseDate(row['지급예정']);
+      if (!jigeup) { excluded.push({ row, source:'자점', reason:'지급예정일 미등록', reasonType:'자점' }); continue; }
+      if (fmt(jigeup) !== todayStr) { excluded.push({ row, source:'자점', reason:`지급예정일 불일치 — ${s(row['지급예정']).trim().slice(0,10)} (기준: ${todayStr})`, reasonType:'자점' }); continue; }
+      const t = rowToTransfer(row, 'jajeom');
+      if (t.금액 > 0) result.push(t);
+      else excluded.push({ row, source:'자점', reason:'금액 0원' });
+    }
+  }
+  dbgLog(`[자점필터] 통과=${result.filter(r=>r.source==='jajeom').length}건 / 전체=${state.jajeom?.length||0}건 (기준일=${todayStr})`);
+
+  // ② 협력: 지급예정 = 이번주 일요일, 개통완료, 웨이브넷지급
+  if (state.hyeomnyeok && sunday) {
+    const sundayFmt = fmt(sunday);
+    for (const row of state.hyeomnyeok) {
+      const fcResult = filterCommon(row);
+      if (fcResult !== true) { excluded.push({ row, source:'협력', reason: fcResult, reasonType:'공통' }); continue; }
+      // 협력 전용: 지급예정일 = 이번주 일요일
+      const jigeup = parseDate(row['지급예정']);
+      if (!jigeup) { excluded.push({ row, source:'협력', reason:'지급예정일 미등록', reasonType:'협력' }); continue; }
+      if (fmt(jigeup) !== sundayFmt) { excluded.push({ row, source:'협력', reason:`지급예정일 불일치 — ${s(row['지급예정']).trim().slice(0,10)} (기준: ${sundayFmt})`, reasonType:'협력' }); continue; }
+      const t = rowToTransfer(row, 'hyeomnyeok');
+      if (t.금액 > 0) result.push(t);
+      else excluded.push({ row, source:'협력', reason:'금액 0원' });
+    }
+  }
+  dbgLog(`[협력필터] 통과=${result.filter(r=>r.source==='hyeomnyeok').length}건 / 전체=${state.hyeomnyeok?.length||0}건 (기준일=${sundayStr})`);
+
+  // ③ 개통: 개통일<=어제, 접수경로=협력점, 개통완료, 웨이브넷지급, 지급예정 없음
+  if (state.gaetong) {
+    const hySet = new Set(result.filter(r=>r.source==='hyeomnyeok').map(r=>`${r.계좌번호}_${r.금액}`));
+
+    for (const row of state.gaetong) {
+      const fcResult = filterCommon(row);
+      if (fcResult !== true) { excluded.push({ row, source:'개통', reason: fcResult, reasonType:'공통' }); continue; }
+      // 개통 전용: 개통일 ≤ 어제 (오늘 개통 건 제외)
+      const gaetongilD = parseDate(row['개통일']);
+      if (!gaetongilD) { excluded.push({ row, source:'개통', reason:'개통일 미등록', reasonType:'개통' }); continue; }
+      if (gaetongilD > yesterday) { excluded.push({ row, source:'개통', reason:`오늘 개통 건 — 당일 입금 불가 (개통일: ${s(row['개통일']).trim().slice(0,10)})`, reasonType:'개통' }); continue; }
+
+      // 개통 전용: 접수경로 = 협력점
+      const gyeonno = s(row['접수경로']).trim();
+      if (!gyeonno.includes('협력점')) { excluded.push({ row, source:'개통', reason:`접수경로 불일치 — 협력점만 해당 (현재: ${gyeonno})`, reasonType:'개통' }); continue; }
+      // 개통 전용: 지급예정일 없어야 함 (있으면 협력파일 중복)
+      const jigeup = s(row['지급예정']).trim();
+      if (jigeup && jigeup !== '' && jigeup !== '-' && jigeup !== '0') { excluded.push({ row, source:'개통', reason:`협력파일 중복 — 지급예정일 이미 등록됨 (${jigeup.slice(0,10)})`, reasonType:'개통' }); continue; }
+
+      const acc = cleanAccount(row['사은품계좌'] || '');
+      const amt = parseAmount(row['현금']);
+      if (hySet.has(`${acc}_${amt}`)) continue;
+
+      const t = rowToTransfer(row, 'gaetong');
+      if (t.금액 > 0) result.push(t);
+      else excluded.push({ row, source:'개통', reason:'금액 0원' });
+    }
+  }
+
+  // 경고 행 수집
+  const warnRows = result.filter(r => r.warnings.length > 0);
+
+  state.filtered = result;
+  state.warns    = warnRows;
+  state.excluded = excluded;
+  // 대성 건은 result 안에 source='daesung' OR 상부점='대성'으로 포함
+  state.daesungFiltered = result.filter(r => r.상부점 === '대성');
+  dbgLog(`[대성] ${state.daesungFiltered.length}건 포함`);
+  dbgLog(`[개통필터] 통과=${result.filter(r=>r.source==='gaetong').length}건 / 전체=${state.gaetong?.length||0}건`);
+  dbgLog(`[최종결과] 총 ${result.length}건 (자점${result.filter(r=>r.source==='jajeom').length} + 협력${result.filter(r=>r.source==='hyeomnyeok').length} + 개통${result.filter(r=>r.source==='gaetong').length})`);
+
+  document.getElementById('dbgCard').style.display = 'block';
+  renderPreview();
+  renderSangbuButtons();
+  renderExcluded();
+
+  const msg = document.getElementById('generateMsg');
+  msg.textContent = `총 ${result.length}건 추출 (경고 ${warnRows.length}건)`;
+  msg.className = 'msg-text' + (warnRows.length > 0 ? ' err' : ' ok');
+  document.getElementById('btnDownload').disabled = result.length === 0;
+  } catch(err) {
+    console.error('필터링 오류:', err);
+    const msg = document.getElementById('generateMsg');
+    msg.textContent = '❌ 오류 발생: ' + err.message;
+    msg.className = 'msg-text err';
+    alert('필터링 중 오류가 발생했습니다:\n' + err.message);
+  }
+}
+
+function toggleExcluded() {
+  const body = document.getElementById('excludedBody');
+  const btn  = document.getElementById('excludedToggleBtn');
+  if (!body) return;
+  if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = '접기 ▲'; }
+  else { body.style.display = 'none'; btn.textContent = '펼치기 ▼'; }
+}
+
+function renderExcluded() {
+  const excluded = state.excluded || [];
+  const section  = document.getElementById('excludedSection');
+  const countEl  = document.getElementById('excludedCount');
+
+  if (!excluded.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  countEl.textContent = `${excluded.length}건`;
+
+  // 파일별로 그룹핑
+  const groups = { '자점': [], '협력': [], '개통': [] };
+  for (const item of excluded) { if (groups[item.source]) groups[item.source].push(item); }
+
+  const srcColor = { '자점':'#1d4ed8', '협력':'#15803d', '개통':'#9a6700' };
+  const srcBg    = { '자점':'#dbeafe', '협력':'#dcfce7', '개통':'#fef9c3' };
+  const typeColor = { '공통':'var(--red)', '자점':'#1d4ed8', '협력':'#15803d', '개통':'#9a6700' };
+  const typeLabel = { '공통':'공통조건', '자점':'자점전용', '협력':'협력전용', '개통':'개통전용' };
+
+  let html = '';
+  for (const [src, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    const totalAmt = items.reduce((a, item) => a + parseAmount(s(item.row['현금'])), 0);
+
+    // 파일 섹션 헤더
+    html += `<div style="background:${srcBg[src]};border-left:3px solid ${srcColor[src]};
+              padding:8px 14px;margin-bottom:8px;border-radius:0 6px 6px 0;
+              display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-weight:700;color:${srcColor[src]};font-size:13px">${src} 파일</span>
+      <span style="font-size:12px;color:var(--text2)">${items.length}건 제외</span>
+      <span style="font-size:12px;color:var(--text2)">/ 금액합계 ${totalAmt.toLocaleString()}원</span>
+    </div>`;
+
+    // 사유별 소계 요약
+    const reasonCount = {};
+    for (const item of items) {
+      const key = item.reason.split('—')[0].split('(')[0].trim();
+      reasonCount[key] = (reasonCount[key]||0) + 1;
+    }
+    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding-left:8px">`;
+    for (const [r, cnt] of Object.entries(reasonCount)) {
+      html += `<span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:10px;
+                padding:2px 10px;font-size:11px;color:var(--text2)">${r} <b>${cnt}건</b></span>`;
+    }
+    html += `</div>`;
+
+    // 상세 테이블
+    html += `<div class="table-wrap" style="margin-bottom:16px">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>조건구분</th><th>고객명</th><th>상품명</th>
+            <th>수취인</th><th>계좌</th><th>금액</th><th>제외 사유</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((item, i) => {
+            const row = item.row;
+            const rType = item.reasonType || '공통';
+            return `<tr class="row-warn">
+              <td class="mono" style="color:var(--text3)">${i+1}</td>
+              <td><span class="badge" style="background:${typeColor[rType]}22;color:${typeColor[rType]};border:1px solid ${typeColor[rType]}44">
+                ${typeLabel[rType]||rType}</span></td>
+              <td>${s(row['고객명']).split('/')[0].trim()}</td>
+              <td style="color:var(--text2);font-size:11px">${s(row['상품명']).trim()}</td>
+              <td>${s(row['사은품예금주']).trim()||'-'}</td>
+              <td class="mono" style="font-size:11px">${cleanAccount(s(row['사은품계좌']))||'-'}</td>
+              <td class="mono" style="color:var(--text2)">${parseAmount(s(row['현금']))>0?parseAmount(s(row['현금'])).toLocaleString():'-'}</td>
+              <td style="font-size:11px;color:var(--red);font-weight:500">${item.reason}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  document.getElementById('excludedGrouped').innerHTML = html;
+}
+
+function toggleDbg() {
+  const pre = document.getElementById('dbgConsole');
+  const btn = document.getElementById('dbgToggleBtn');
+  if (!pre) return;
+  if (pre.style.display === 'none') { pre.style.display = 'block'; btn.textContent = '[접기]'; }
+  else { pre.style.display = 'none'; btn.textContent = '[펼치기]'; }
+}
+
+// 상부점별 다운로드 버튼 생성
+function renderSangbuButtons() {
+  const area   = document.getElementById('sangbuDownloadArea');
+  const btnRow = document.getElementById('sangbuBtnRow');
+  const sumArea= document.getElementById('sangbuSummaryArea');
+  const sumRow = document.getElementById('sangbuSummaryRow');
+  if (!state.filtered.length) {
+    area.style.display = 'none';
+    sumArea.style.display = 'none';
+    return;
+  }
+
+  // 상부점별 건수 + 합계금액
+  const sangbuStats = {};
+  for (const r of state.filtered) {
+    const k = r.상부점 || '확인필요';
+    if (!sangbuStats[k]) sangbuStats[k] = { cnt: 0, amt: 0 };
+    sangbuStats[k].cnt++;
+    sangbuStats[k].amt += r.금액 || 0;
+  }
+  const totalAmt = state.filtered.reduce((a, r) => a + (r.금액||0), 0);
+
+  // 정렬: 금액 많은 순
+  const sorted = Object.entries(sangbuStats).sort((a,b) => b[1].amt - a[1].amt);
+
+  // 색상 맵
+  const colorMap = {
+    '웨이브넷': { bg:'#dbeafe', color:'#1d4ed8', border:'#bfdbfe' },
+    '우신':    { bg:'#dcfce7', color:'#15803d', border:'#bbf7d0' },
+    '우리':    { bg:'#fef9c3', color:'#854d0e', border:'#fde68a' },
+    '우성':    { bg:'#fce7f3', color:'#9d174d', border:'#fbcfe8' },
+    '대성':    { bg:'#fff7ed', color:'#c2410c', border:'#fed7aa' },
+  };
+
+  // ── 상부점별 합계 카드 ──────────────────────────────────────
+  sumRow.innerHTML = sorted.map(([sangbu, stat]) => {
+    const c = colorMap[sangbu] || { bg:'#f3f4f6', color:'#374151', border:'#d1d5db' };
+    const pct = totalAmt > 0 ? Math.round(stat.amt / totalAmt * 100) : 0;
+    return `<div style="
+        background:${c.bg}; border:1px solid ${c.border}; border-radius:8px;
+        padding:12px 16px; min-width:160px; position:relative; overflow:hidden;">
+      <!-- 배경 바 -->
+      <div style="position:absolute;bottom:0;left:0;height:3px;width:${pct}%;background:${c.color};opacity:0.5;border-radius:0 0 0 8px;"></div>
+      <div style="font-size:12px;font-weight:700;color:${c.color};margin-bottom:6px;">${sangbu}</div>
+      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${c.color};">
+        ${stat.amt.toLocaleString()}
+        <span style="font-size:11px;font-weight:400;">원</span>
+      </div>
+      <div style="font-size:11px;color:${c.color};opacity:0.7;margin-top:3px;">${stat.cnt}건 · 전체의 ${pct}%</div>
+    </div>`;
+  }).join('') + `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;min-width:160px;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">📊 전체 합계</div>
+      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#1e293b;">
+        ${totalAmt.toLocaleString()}
+        <span style="font-size:11px;font-weight:400;">원</span>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:3px;">${state.filtered.length}건 총합</div>
+    </div>`;
+
+  sumArea.style.display = 'block';
+
+  // ── 대성 건 표시 ──────────────────────────────────────────
+  const daesungArea = document.getElementById('daesungArea');
+  const daesungData = state.daesungFiltered || [];
+  if (daesungData.length > 0) {
+    daesungArea.style.display = 'block';
+    const dsTotal = daesungData.reduce((a,r)=>a+r.금액,0);
+    document.getElementById('daesungStats').innerHTML = `
+      <div class="stat-box"><div class="stat-label">대성 건수</div><div class="stat-value" style="color:#f97316">${daesungData.length}</div></div>
+      <div class="stat-box"><div class="stat-label">대성 합계</div><div class="stat-value" style="font-size:15px;color:#f97316">${dsTotal.toLocaleString()}<span style="font-size:11px;font-weight:400">원</span></div></div>
+    `;
+    document.getElementById('daesungTbody').innerHTML = daesungData.map((r,i) => `
+      <tr>
+        <td class="mono" style="color:var(--text3)">${i+1}</td>
+        <td><b>${r.고객명}</b></td>
+        <td>${r.은행}</td>
+        <td class="mono">${r.계좌번호}</td>
+        <td class="mono" style="color:#f97316;font-weight:700">${r.금액.toLocaleString()}</td>
+        <td>${r.수취인}</td>
+        <td class="mono" style="color:var(--text2)">${r.연락처}</td>
+        <td style="color:var(--text2)">${r.상부점원본||''}</td>
+        <td>${r.warnings.map(w=>`<span class="badge badge-yellow">${w.type}</span>`).join(' ')}</td>
+      </tr>`).join('');
+  } else {
+    daesungArea.style.display = 'none';
+  }
+
+  // ── 다운로드 버튼 ──────────────────────────────────────────
+  // 대성은 별도 섹션에서 다운로드 제공 → 버튼 목록에서 제외
+  btnRow.innerHTML = sorted.filter(([sangbu]) => sangbu !== '대성').map(([sangbu, stat]) => {
+    const c = colorMap[sangbu] || { bg:'#f3f4f6', color:'#374151', border:'#d1d5db' };
+    return `<button
+      onclick="downloadExcel('${sangbu}')"
+      style="padding:7px 14px;border-radius:6px;border:1px solid ${c.border};
+             background:${c.bg};color:${c.color};font-size:12px;font-weight:700;
+             cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;
+             transition:opacity 0.15s;"
+      onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+      📥 ${sangbu}
+      <span style="background:rgba(0,0,0,0.1);padding:1px 6px;border-radius:10px;font-size:10px;">
+        ${stat.cnt}건 · ${stat.amt.toLocaleString()}원
+      </span>
+    </button>`;
+  }).join('');
+
+  area.style.display = 'block';
+}
+
+// 공통 필터: 개통완료 + 웨이브넷 지급
+// 대성 건 판별: 협력점에 '상권사업부' 포함 OR 상부점에 '대성' 포함
+function isDaesung(row) {
+  const hyeomnyeokjeom = s(row['협력점']).trim();
+  const sangbujeom     = s(row['상부점']).trim();
+  return hyeomnyeokjeom.includes('상권사업부') || sangbujeom.includes('대성');
+}
+
+// filterCommon: 공통 필터 — 통과=true, 제외=사유문자열 반환
+function filterCommon(row) {
+  // ① 개통상태
+  const gaetong = s(row['개통상태']).trim();
+  if (gaetong !== '개통완료')
+    return `개통상태 미완료 (${gaetong||'없음'})`;
+
+  // ② 사은품 지급처
+  const jigeupcheo = s(row['사은품 지급처']).trim();
+  if (jigeupcheo !== '웨이브넷 지급')
+    return `사은품 지급처 해당없음 (${jigeupcheo||'없음'})`;
+
+  // ③ 지급완료일 반영 여부
+  const jigeupWanlyo = s(row['지급완료']).trim();
+  if (jigeupWanlyo && jigeupWanlyo !== '-' && jigeupWanlyo !== '0')
+    return `지급완료 이미 반영됨 (${jigeupWanlyo})`;
+
+  // ※ 개통기한 초과는 제외 대상이 아님 — rowToTransfer에서 경고만 표시 (입금 대상 포함)
+
+  // ⑤ 모바일 상품 — 선택약정/결합 체크
+  const isMobile = s(row['상품명']).includes('모바일');
+  if (isMobile) {
+    const attr = s(row['고객명']).includes('/') ? s(row['고객명']).slice(s(row['고객명']).indexOf('/')) : '';
+    if (attr.includes('\u3134'))
+      return `선택약정 미등록 [모바일] (고객명: ${s(row['고객명']).trim()})`;
+    if (attr.includes('\u25B2'))
+      return `결합 미등록 [모바일] (고객명: ${s(row['고객명']).trim()})`;
+  }
+
+  return true; // 통과
+}
+
+// ============================================================
+// 미리보기 렌더링
+// ============================================================
+function renderPreview() {
+  document.getElementById('previewCard').style.display = 'block';
+
+  const data = state.filtered;
+  const warns = state.warns;
+
+  const cnt = {
+    jajeom: data.filter(r=>r.source==='jajeom').length,
+    hyeomnyeok: data.filter(r=>r.source==='hyeomnyeok').length,
+    gaetong: data.filter(r=>r.source==='gaetong').length,
+  };
+  const totalAmt = data.reduce((s,r)=>s+r.금액,0);
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-label">전체 건수</div>
+      <div class="stat-value blue">${data.length}</div>
+      <div class="stat-sub">대량이체 대상</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">① 자점</div>
+      <div class="stat-value">${cnt.jajeom}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">② 협력</div>
+      <div class="stat-value">${cnt.hyeomnyeok}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">③ 개통</div>
+      <div class="stat-value">${cnt.gaetong}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">⚠️ 경고</div>
+      <div class="stat-value ${warns.length>0?'red':'green'}">${warns.length}</div>
+      <div class="stat-sub">수기 확인 필요</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">총 지급액</div>
+      <div class="stat-value green" style="font-size:15px">${totalAmt.toLocaleString()}</div>
+      <div class="stat-sub">원</div>
+    </div>
+  `;
+
+  // 경고 섹션
+  const warnSection = document.getElementById('warnSection');
+  if (warns.length > 0) {
+    warnSection.style.display = 'block';
+    document.getElementById('warnSummary').innerHTML =
+      `⚠️ 아래 <b>${warns.length}건</b>에서 확인이 필요합니다. 대량이체 파일에는 포함되나 수기 검토 후 처리하세요.`;
+
+    const srcLabel = { jajeom:'자점', hyeomnyeok:'협력', gaetong:'개통' };
+    document.getElementById('warnTbody').innerHTML = warns.map(r => {
+      const warnBadges = r.warnings.map(w => {
+        const cls = w.type === '개통기한 초과'     ? 'badge-red' :
+                   w.type === '접점코드 오류'      ? 'badge-red' :
+                   w.type === '대성 지급완료 오류'  ? 'badge-red' :
+                   w.type === '입금정보 공란'       ? 'badge-red' :
+                   w.type === '접수경로 오류'       ? 'badge-red' :
+                   w.type === '확인필요'           ? 'badge-yellow' :
+                   w.type.includes('상부점')       ? 'badge-red' : 'badge-yellow';
+        return `<span class="badge ${cls}">${w.type}</span> <span style="color:var(--text2);font-size:11px">${w.msg}</span>`;
+      }).join('<br>');
+      return `<tr class="row-warn">
+        <td><span class="badge badge-${r.source==='jajeom'?'blue':r.source==='hyeomnyeok'?'green':'yellow'}">${srcLabel[r.source]}</span></td>
+        <td><b>${r.고객명}</b></td>
+        <td style="color:var(--text2)">${r.상품명}</td>
+        <td style="color:var(--text2)">${r.협력점}</td>
+        <td>${warnBadges}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    warnSection.style.display = 'none';
+  }
+
+  renderTable();
+}
+
+function renderTable() {
+  const filter = state.currentFilter;
+  const q = state.searchQuery.toLowerCase();
+  let data = state.filtered;
+  if (filter !== 'all') data = data.filter(r => r.source === filter);
+  if (q) data = data.filter(r =>
+    r.고객명.toLowerCase().includes(q) ||
+    r.수취인.toLowerCase().includes(q) ||
+    r.계좌번호.includes(q)
+  );
+
+  const srcLabel = { jajeom:'자점', hyeomnyeok:'협력', gaetong:'개통' };
+  const srcBadge = { jajeom:'badge-blue', hyeomnyeok:'badge-green', gaetong:'badge-yellow' };
+
+  document.getElementById('previewTbody').innerHTML = data.map((r, i) => {
+    const hasWarn = r.warnings.length > 0;
+    const warnBadges = r.warnings.map(w => {
+      const cls = w.type === '개통기한 초과'     ? 'badge-red' :
+                   w.type === '접점코드 오류'      ? 'badge-red' :
+                   w.type === '대성 지급완료 오류'  ? 'badge-red' :
+                   w.type === '입금정보 공란'       ? 'badge-red' :
+                   w.type === '접수경로 오류'       ? 'badge-red' :
+                   w.type === '확인필요'           ? 'badge-yellow' :
+                   w.type.includes('상부점')       ? 'badge-red' : 'badge-yellow';
+      return `<span class="badge ${cls}" title="${w.msg}">${w.type}</span>`;
+    }).join(' ');
+
+    // 상부점 배지 색상
+    const sangbuBadge = r.상부점 === '확인필요' ? 'badge-red' :
+                        r.상부점 === '상부점 확인필요' ? 'badge-red' : 'badge-gray';
+
+    return `<tr class="${hasWarn?'row-warn':''}">
+      <td class="mono" style="color:var(--text3)">${i+1}</td>
+      <td><span class="badge ${srcBadge[r.source]}">${srcLabel[r.source]}</span></td>
+      <td><b>${r.고객명}</b></td>
+      <td>${r.은행||'<span style="color:var(--red)">-</span>'}</td>
+      <td class="mono">${r.계좌번호||'<span style="color:var(--red)">-</span>'}</td>
+      <td class="mono" style="color:var(--green);font-weight:700">${r.금액.toLocaleString()}</td>
+      <td>${r.수취인||'<span style="color:var(--red)">-</span>'}</td>
+      <td class="mono" style="color:var(--text2)">${r.주민번호||'-'}</td>
+      <td class="mono" style="color:var(--text2)">${r.연락처||'-'}</td>
+      <td><span class="badge ${sangbuBadge}">${r.상부점}</span></td>
+      <td class="mono" style="color:var(--text2)">${r.개통일}</td>
+      <td class="mono" style="color:var(--text2)">${r.지급예정||'-'}</td>
+      <td style="color:var(--text2)">${r.고객명_clean||''}</td>
+      <td>${warnBadges}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tableCount').textContent = `${data.length}건 표시 중`;
+}
+
+function filterTable(f, btn) {
+  state.currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+function searchTable(q) { state.searchQuery = q; renderTable(); }
+
+// ============================================================
+// 엑셀 다운로드
+// ============================================================
+// 이체행 → 엑셀 Row 변환 (bankMemo = 받는분 통장표시)
+function toExcelRow(r, bankMemo) {
+  return {
+    '은행':    r.은행,
+    '계좌':    r.계좌번호,
+    '금액':    r.금액,
+    '수취인':  r.수취인,
+    '주민번호': r.주민번호,
+    '연락처':  r.연락처,
+    '받는분통장표시': bankMemo || '인터넷사은금',
+    '상부점':  r.상부점,
+    '고객명':  r.고객명_clean || cleanName(r.고객명) || '',
+  };
+}
+
+const EXCEL_HEADER = ['은행','계좌','금액','수취인','주민번호','연락처','받는분통장표시','상부점','고객명'];
+const EXCEL_COLS = [{wch:12},{wch:22},{wch:10},{wch:12},{wch:16},{wch:14},{wch:4},{wch:14},{wch:12}];
+
+function makeSheet(rows, bankMemo) {
+  const ws = XLSX.utils.json_to_sheet(rows.map(r => toExcelRow(r, bankMemo)), { header: EXCEL_HEADER });
+  ws['!cols'] = EXCEL_COLS;
+  return ws;
+}
+
+// targetSangbu: 'all' = 전체, 또는 '웨이브넷'/'우신' 등 특정 상부점
+function downloadExcel(targetSangbu) {
+  if (!state.filtered.length) return;
+  const todayStr = document.getElementById('todayDate').value.replace(/-/g,'');
+
+  // 통장표시 값 결정
+  const memo = state.bankMemo === '__custom__'
+    ? (state.bankMemoCustomVal || '인터넷사은금').slice(0, 12)
+    : (state.bankMemo || '인터넷사은금');
+
+  const wb = XLSX.utils.book_new();
+
+  if (targetSangbu === 'all') {
+    XLSX.utils.book_append_sheet(wb, makeSheet(state.filtered, memo), '대량이체');
+    XLSX.writeFile(wb, `사은품대량이체_전체_${todayStr}.xlsx`);
+  } else if (targetSangbu === '대성') {
+    // 대성 별도 파일: 통장표시 고정 '인터넷사은금'
+    const dsRows = state.daesungFiltered || [];
+    if (!dsRows.length) { alert('대성 건이 없습니다.'); return; }
+    XLSX.utils.book_append_sheet(wb, makeSheet(dsRows, '인터넷사은금'), '대성');
+    XLSX.writeFile(wb, `사은품대량이체_대성_${todayStr}.xlsx`);
+  } else {
+    const rows = state.filtered.filter(r => r.상부점 === targetSangbu);
+    if (!rows.length) { alert(`${targetSangbu} 건이 없습니다.`); return; }
+    const safeName = targetSangbu.replace(/[\/:*?"<>|]/g,'_');
+    XLSX.utils.book_append_sheet(wb, makeSheet(rows, memo), targetSangbu.slice(0,31));
+    XLSX.writeFile(wb, `사은품대량이체_${safeName}_${todayStr}.xlsx`);
+  }
+}
+
+// ============================================================
+// 검증
+// ============================================================
+
+// ============================================================
+// 검증 탭 파일 업로드
+// ============================================================
+async function handleVerifyFinal(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById('status-vFinal');
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = await parseNormalXls(file);
+    state.vFinalData = data;
+    document.getElementById('zone-vFinal').classList.add('loaded');
+    status.textContent = `✅ ${data.length}건 로드됨`;
+    checkVerifyReady();
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`; status.className = 'upload-status err';
+  }
+}
+
+async function handleVerifyRaw(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById('status-vRaw');
+  status.textContent = '⏳ 파싱 중...'; status.className = 'upload-status';
+  try {
+    const data = await parseAuto(file);
+    state.vRawData = data;
+    document.getElementById('zone-vRaw').classList.add('loaded');
+    status.textContent = `✅ ${data.length}건 로드됨`;
+    checkVerifyReady();
+  } catch(err) {
+    status.textContent = `❌ 오류: ${err.message}`; status.className = 'upload-status err';
+  }
+}
+
+async function runVerification() {
+  const finalData = state.vFinalData;
+  const rawData   = state.vRawData;
+  if (!finalData || !rawData) { alert('파일을 먼저 업로드해주세요.'); return; }
+
+  const cleanAcc = v => String(v||'').replace(/[-\s]/g,'').trim();
+  const parseAmt = v => parseInt(String(v||'').replace(/[,\s]/g,''))||0;
+
+  // ── 로우데이터 멀티맵: 계좌 → rows[] ──────────────────────────
+  const rawMultiMap = {};   // 계좌 → [row, ...]
+  const rawKeySet   = new Set(); // 계좌_금액
+
+  for (const row of rawData) {
+    const acc = cleanAcc(s(row['사은품계좌']));
+    const amt = parseAmt(s(row['현금']));
+    if (!acc) continue;
+    if (!rawMultiMap[acc]) rawMultiMap[acc] = [];
+    rawMultiMap[acc].push(row);
+    rawKeySet.add(`${acc}_${amt}`);
+  }
+
+  // ── 최종입금파일 처리 ──────────────────────────────────────────
+  const wrongItems      = []; // 잘못 입금 의심 (로우에 없음)
+  const amtMismatch     = []; // 금액 불일치
+  const okItems         = []; // 정상 매칭
+  const usedKeys        = {};
+
+  for (const fin of finalData) {
+    const acc      = cleanAcc(String(fin['계좌']||''));
+    const amt      = parseAmt(String(fin['금액']||''));
+    const name     = String(fin['수취인']||'').trim();
+    const bank     = String(fin['은행']||'').trim();
+    const sangbu   = String(fin['상부점']||'').trim();
+    const memo     = String(fin['받는분통장표시']||'').trim();
+    if (!acc) continue;
+
+    const rawRows = rawMultiMap[acc];
+
+    // 계좌 자체가 로우에 없음 → 잘못 입금 의심
+    if (!rawRows || rawRows.length === 0) {
+      wrongItems.push({ fin, reason: '계좌 없음' });
+      continue;
+    }
+
+    // 계좌+금액 완전 일치 확인
+    const matchKey   = `${acc}_${amt}`;
+    const usedCount  = usedKeys[matchKey] || 0;
+    const exactMatch = rawRows.filter(r => parseAmt(s(r['현금'])) === amt);
+
+    if (exactMatch.length > usedCount) {
+      // 정상 매칭
+      const rawRow = exactMatch[usedCount];
+      usedKeys[matchKey] = usedCount + 1;
+      const rawName = (s(rawRow['사은품예금주']) || s(rawRow['고객명'])).trim();
+      okItems.push({ fin, rawRow, nameMatch: !rawName || !name || rawName === name });
+    } else {
+      // 계좌는 있는데 금액이 다름 → 금액 불일치
+      const rawAmts = rawRows.map(r => parseAmt(s(r['현금'])));
+      amtMismatch.push({ fin, rawAmts, diff: amt - rawAmts[0] });
+    }
+  }
+
+  // ── 미입금 건: 로우O → 최종입금X ──────────────────────────────
+  const finalKeyMulti = {};
+  for (const fin of finalData) {
+    const k = `${cleanAcc(String(fin['계좌']||''))}_${parseAmt(String(fin['금액']||''))}`;
+    finalKeyMulti[k] = (finalKeyMulti[k]||0) + 1;
+  }
+
+  const usedRawKeys = {};
+  const notPaidItems = [];
+  for (const row of rawData) {
+    const acc = cleanAcc(s(row['사은품계좌']));
+    const amt = parseAmt(s(row['현금']));
+    if (!acc || amt <= 0) continue;
+    const k = `${acc}_${amt}`;
+    const usedCnt = usedRawKeys[k] = (usedRawKeys[k]||0)+1;
+    const finalCnt = finalKeyMulti[k] || 0;
+    if (usedCnt > finalCnt) notPaidItems.push(row);
+  }
+
+  renderVerify(wrongItems, amtMismatch, okItems, notPaidItems, finalData.length, rawData.length);
+
+  const msg = document.getElementById('verifyMsg');
+  const issues = wrongItems.length + amtMismatch.length;
+  msg.textContent = `검증 완료 | 최종입금 ${finalData.length}건 / 로우 ${rawData.length}건 | 🚨잘못입금 ${wrongItems.length} | ⚠️금액불일치 ${amtMismatch.length} | ✅정상 ${okItems.length} | 미입금 ${notPaidItems.length}`;
+  msg.className = 'msg-text ' + (issues > 0 ? 'err' : 'ok');
+}
+
+function renderVerify(wrongItems, amtMismatch, okItems, notPaidItems, finalTotal, rawTotal) {
+  document.getElementById('verifyResult').style.display = 'block';
+
+  const cleanAcc = v => String(v||'').replace(/[-\s]/g,'').trim();
+  const parseAmt = v => parseInt(String(v||'').replace(/[,\s]/g,''))||0;
+
+  // 통계
+  document.getElementById('verifyStats').innerHTML = `
+    <div class="stat-box"><div class="stat-label">최종 입금파일</div><div class="stat-value blue">${finalTotal}</div></div>
+    <div class="stat-box"><div class="stat-label">로우데이터</div><div class="stat-value blue">${rawTotal}</div></div>
+    <div class="stat-box"><div class="stat-label">🚨 잘못 입금</div><div class="stat-value ${wrongItems.length?'red':'green'}">${wrongItems.length}</div></div>
+    <div class="stat-box"><div class="stat-label">⚠️ 금액 불일치</div><div class="stat-value ${amtMismatch.length?'yellow':'green'}">${amtMismatch.length}</div></div>
+    <div class="stat-box"><div class="stat-label">✅ 정상 매칭</div><div class="stat-value green">${okItems.length}</div></div>
+    <div class="stat-box"><div class="stat-label">📋 미입금</div><div class="stat-value ${notPaidItems.length?'yellow':'green'}">${notPaidItems.length}</div></div>
+  `;
+
+  // 잘못 입금 테이블
+  document.getElementById('wrongTbody').innerHTML = wrongItems.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:16px">잘못 입금 건 없음 ✅</td></tr>'
+    : wrongItems.map((item,i) => {
+        const f = item.fin;
+        return `<tr class="row-err">
+          <td class="mono" style="color:var(--text3)">${i+1}</td>
+          <td><b>${f['수취인']||''}</b></td>
+          <td>${f['은행']||''}</td>
+          <td class="mono">${cleanAcc(String(f['계좌']||''))}</td>
+          <td class="mono" style="color:var(--red);font-weight:700">${parseAmt(String(f['금액']||'')).toLocaleString()}</td>
+          <td><span class="badge badge-gray">${f['상부점']||''}</span></td>
+          <td><span class="badge badge-blue">${f['받는분통장표시']||''}</span></td>
+        </tr>`;
+      }).join('');
+
+  // 금액 불일치 테이블
+  document.getElementById('amtMismatchTbody').innerHTML = amtMismatch.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:16px">금액 불일치 건 없음 ✅</td></tr>'
+    : amtMismatch.map((item,i) => {
+        const f = item.fin;
+        const finAmt = parseAmt(String(f['금액']||''));
+        const rawAmt = item.rawAmts[0] || 0;
+        const diff   = finAmt - rawAmt;
+        return `<tr class="row-warn">
+          <td class="mono" style="color:var(--text3)">${i+1}</td>
+          <td><b>${f['수취인']||''}</b></td>
+          <td class="mono">${cleanAcc(String(f['계좌']||''))}</td>
+          <td class="mono" style="color:var(--accent);font-weight:700">${finAmt.toLocaleString()}</td>
+          <td class="mono" style="color:var(--text2)">${item.rawAmts.map(a=>a.toLocaleString()).join(', ')}</td>
+          <td class="mono" style="color:${diff>0?'var(--red)':'var(--green)'}; font-weight:700">${diff>0?'+':''}${diff.toLocaleString()}</td>
+          <td><span class="badge badge-gray">${f['상부점']||''}</span></td>
+        </tr>`;
+      }).join('');
+
+  // 정상 매칭
+  const okDiv = document.getElementById('okList');
+  okDiv.innerHTML = okItems.length === 0
+    ? '<div class="empty-state"><p>정상 매칭 건 없음</p></div>'
+    : okItems.slice(0,30).map(item => `
+        <div class="verify-item ok">
+          <span class="verify-icon">✅</span>
+          <div class="verify-text">
+            <div class="verify-name">${item.fin['수취인']||''}</div>
+            <div class="verify-detail">${item.fin['은행']||''} · ${cleanAcc(String(item.fin['계좌']||''))} · ${parseAmt(String(item.fin['금액']||'')).toLocaleString()}원</div>
+          </div>
+        </div>`).join('')
+    + (okItems.length > 30 ? `<div style="text-align:center;color:var(--text2);font-size:11px;padding:8px">... 외 ${okItems.length-30}건</div>` : '');
+
+  // 미입금 - 전체 표시 (테이블)
+  const notDiv = document.getElementById('notPaidList');
+  if (notPaidItems.length === 0) {
+    notDiv.innerHTML = '<div class="verify-item ok"><span>✅</span><span>미입금 건 없음</span></div>';
+  } else {
+    notDiv.innerHTML = `
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">총 ${notPaidItems.length}건 전체 표시</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>고객명</th><th>수취인(예금주)</th><th>은행</th><th>계좌번호</th><th>금액</th><th>상부점</th><th>지급예정</th></tr>
+          </thead>
+          <tbody>
+            ${notPaidItems.map((row, i) => `<tr>
+              <td class="mono" style="color:var(--text3)">${i+1}</td>
+              <td style="color:var(--text2)">${s(row['고객명']).split('/')[0].trim()}</td>
+              <td><b>${s(row['사은품예금주']).trim() || s(row['고객명']).split('/')[0].trim()}</b></td>
+              <td>${s(row['사은품은행']).trim()}</td>
+              <td class="mono">${cleanAccount(s(row['사은품계좌']))}</td>
+              <td class="mono" style="color:var(--accent);font-weight:700">${parseInt(String(s(row['현금'])||'0').replace(/[,\s]/g,'')||'0').toLocaleString()}</td>
+              <td><span class="badge badge-gray">${s(row['상부점']).trim()||'-'}</span></td>
+              <td class="mono" style="color:var(--text2)">${s(row['지급예정']).trim()||'-'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+}
+
+
+// ============================================================
+// 초기화
+// ============================================================
+initDates();
+document.getElementById('tab-generate').style.display = 'block';
+</script>
+</body>
+</html>
