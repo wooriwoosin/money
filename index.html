@@ -427,6 +427,14 @@
     align-items: center;
     justify-content: space-between;
   }
+
+  /* DB 탭 전용 */
+  .row-dup td { background:#fff5f5 !important; }
+  .page-btn { padding:5px 10px;border:1px solid var(--border);border-radius:5px;background:#fff;font-size:12px;cursor:pointer; }
+  .page-btn.active { background:var(--accent);color:#fff;border-color:var(--accent); }
+  .page-btn:disabled { opacity:.4;cursor:not-allowed; }
+  .search-input { background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 11px;color:var(--text);font-size:12px;outline:none; }
+  .pagination { display:flex;gap:4px;align-items:center;margin-top:12px; }
 </style>
 </head>
 <body>
@@ -439,10 +447,22 @@
 
 <div class="main">
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-generate', this)">📋 사은품 파일 생성</button>
-    <button class="tab-btn" onclick="switchTab('tab-extra', this)">🎁 추천후기 · 상품권</button>
-    <button class="tab-btn" onclick="switchTab('tab-verify', this)">🔍 입금 검증</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-bottom:1px solid var(--border);padding:0 8px;flex-wrap:wrap">
+    <div class="tabs" style="border-bottom:none;flex:1">
+      <button class="tab-btn active" onclick="switchTab('tab-generate', this)">📋 사은품 파일 생성</button>
+      <button class="tab-btn" onclick="switchTab('tab-extra', this)">🎁 추천후기 · 상품권</button>
+      <button class="tab-btn" onclick="switchTab('tab-verify', this)">🔍 입금 검증</button>
+      <span style="display:inline-block;width:1px;height:20px;background:var(--border2);margin:0 6px;vertical-align:middle"></span>
+      <button class="tab-btn" onclick="switchTab('tab-dup',this);checkDbLogin()" style="color:#7c3aed">🔁 중복 체크</button>
+      <button class="tab-btn" onclick="switchTab('tab-save',this);checkDbLogin()" style="color:#7c3aed">💾 입금 저장</button>
+      <button class="tab-btn" onclick="switchTab('tab-bank',this);checkDbLogin()" style="color:#7c3aed">🏦 은행파일</button>
+      <button class="tab-btn" onclick="switchTab('tab-history',this);checkDbLogin()" style="color:#7c3aed">📋 내역 검색</button>
+      <button class="tab-btn" onclick="switchTab('tab-stats',this);checkDbLogin()" style="color:#7c3aed">📊 통계</button>
+    </div>
+    <div id="dbUserBar" style="display:none;font-size:11px;color:var(--text2);padding:0 8px;white-space:nowrap">
+      <span id="dbUserLabel"></span>
+      <button onclick="doDbLogout()" style="margin-left:6px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:11px;cursor:pointer">로그아웃</button>
+    </div>
   </div>
 
 
@@ -818,6 +838,208 @@
     </div>
 
   </div><!-- /tab-verify -->
+
+  <!-- DB 로그인 오버레이 -->
+  <div id="dbLoginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:36px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-size:16px;font-weight:700;text-align:center;margin-bottom:4px">🔐 DB 로그인</div>
+      <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:20px">입금 DB 접근 권한이 필요합니다</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">아이디</div>
+        <input type="text" id="dbLoginId" placeholder="아이디" style="width:100%;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')doDbLogin()">
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">비밀번호</div>
+        <input type="password" id="dbLoginPw" placeholder="비밀번호" style="width:100%;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')doDbLogin()">
+      </div>
+      <div id="dbLoginErr" style="color:#cf222e;font-size:12px;text-align:center;margin-bottom:10px;min-height:18px"></div>
+      <button onclick="doDbLogin()" id="dbLoginBtn" style="width:100%;padding:10px;background:#0969da;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">로그인</button>
+      <button onclick="closeDbLogin()" style="width:100%;padding:8px;background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;margin-top:6px">취소</button>
+    </div>
+  </div>
+
+
+  <!-- ===== 탭1: 중복 체크 ===== -->
+      <div class="panel active" id="tab-dup">
+        <div class="card">
+          <div class="card-title">📂 입금 예정 파일 업로드</div>
+          <div class="alert alert-info">
+            💡 입금할 대량이체 엑셀 파일을 올려주세요. 해당 날짜를 제외한 최근 1년 입금 내역과 계좌번호 기준으로 중복을 검사합니다.
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;max-width:640px;margin-bottom:16px">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">이체 날짜 <span style="color:var(--red)">*</span></div>
+              <input type="date" id="dupDate" class="search-input" style="width:160px">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">이 날짜의 입금은 중복에서 제외</div>
+            </div>
+            <div class="upload-zone" id="zone-dup" style="min-height:80px">
+              <input type="file" accept=".xlsx,.xls" onchange="handleDupFile(event)">
+              <div class="upload-label">📄 대량이체 전체 파일 업로드</div>
+              <div class="upload-status" id="status-dup"></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="runDupCheck()" id="btnDupCheck" disabled>🔍 중복 체크 실행</button>
+            <span class="msg-text" id="dupMsg"></span>
+          </div>
+        </div>
+  
+        <div id="dupResult" style="display:none">
+          <div class="stats-row" id="dupStats"></div>
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div class="card-title" style="margin-bottom:0">중복 체크 결과</div>
+              <button class="btn btn-outline" onclick="downloadDupExcel()" style="font-size:12px;padding:5px 12px">📥 중복 건 엑셀 다운로드</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>#</th><th>결과</th><th>수취인</th><th>고객명</th><th>은행</th><th>계좌번호</th><th>금액</th><th>상부점</th><th>이전입금이력</th></tr>
+                </thead>
+                <tbody id="dupTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+  <!-- ===== 탭2: 입금 저장 ===== -->
+      <div class="panel" id="tab-save">
+        <div class="card">
+          <div class="card-title">💾 오늘 입금 데이터 DB 저장</div>
+          <div class="alert alert-warn">
+            ⚠️ 실제 입금 완료 후 저장해주세요. 저장된 데이터는 향후 중복 체크에 사용됩니다.
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:end;max-width:500px;margin-bottom:16px">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">입금 날짜</div>
+              <input type="date" id="saveDate" class="search-input" style="width:160px">
+            </div>
+            <div class="upload-zone" id="zone-save" style="min-height:70px">
+              <input type="file" accept=".xlsx,.xls" onchange="handleSaveFile(event)">
+              <div class="upload-label">📄 최종 입금파일 업로드</div>
+              <div class="upload-status" id="status-save"></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-success" onclick="runSave()" id="btnSave" disabled>💾 DB 저장</button>
+            <span class="msg-text" id="saveMsg"></span>
+          </div>
+        </div>
+      </div>
+
+  <!-- ===== 탭: 은행파일 저장 ===== -->
+      <div class="panel" id="tab-bank">
+        <div class="card">
+          <div class="card-title">🏦 은행 대량이체 결과파일 DB 저장</div>
+          <div class="alert alert-info" style="margin-bottom:14px">
+            💡 은행에서 다운로드한 <b>대량이체내역조회 이체결과조회</b> 파일을 여러 개 한 번에 업로드할 수 있습니다.<br>
+            처리결과가 <b>정상</b>인 건만 저장되며, 내부메모(상부점) 자동 매핑됩니다.
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">파일 선택 (여러 개 동시 가능)</div>
+            <div class="upload-zone" id="zone-bank" style="min-height:80px">
+              <input type="file" accept=".xlsx,.xls" multiple onchange="handleBankFiles(event)">
+              <div class="upload-label">📂 은행 이체결과 파일 업로드 (복수 선택 가능)</div>
+              <div class="upload-status" id="status-bank"></div>
+            </div>
+          </div>
+          <div id="bankPreview" style="display:none;margin-bottom:14px">
+            <div class="stats-row" id="bankStats"></div>
+            <div class="table-wrap" style="max-height:300px;overflow-y:auto">
+              <table>
+                <thead><tr><th>법인</th><th>건수</th><th>기간</th><th>금액 합계</th></tr></thead>
+                <tbody id="bankPreviewTbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-success" onclick="runBankSave()" id="btnBankSave" disabled>💾 DB 저장</button>
+            <span class="msg-text" id="bankMsg"></span>
+          </div>
+        </div>
+      </div>
+  
+          <!-- ===== 탭3: 입금 내역 ===== -->
+      <div class="panel" id="tab-history">
+        <div class="card">
+          <div class="card-title">📋 입금 내역 검색 (최근 1년)</div>
+          <div class="alert alert-info" style="margin-bottom:14px">
+            💡 수취인명, 계좌번호, 상부점으로 검색해주세요. 검색어 입력 후 조회 버튼을 누르면 결과가 표시됩니다.
+          </div>
+          <div class="btn-row" style="margin-bottom:0">
+            <input type="text" class="search-input" id="historySearch" placeholder="수취인 / 계좌번호 / 상부점..." style="width:280px"
+              onkeydown="if(event.key==='Enter') searchHistory()">
+            <button class="btn btn-primary" onclick="searchHistory()">🔎 조회</button>
+            <button class="btn btn-outline" onclick="clearHistory()">✕ 초기화</button>
+            <span class="msg-text" id="historyMsg" style="margin-left:auto"></span>
+          </div>
+        </div>
+  
+        <!-- 결과 테이블 - 검색 후에만 표시 -->
+        <div class="card" id="historyResultCard" style="display:none">
+          <div class="card-title" id="historyResultTitle">검색 결과</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>입금일자</th><th>수취인</th><th>은행</th><th>계좌번호</th><th>금액</th><th>상부점</th><th>통장표시</th></tr>
+              </thead>
+              <tbody id="historyTbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="historyPagination"></div>
+        </div>
+      </div>
+
+  <!-- ===== 탭3: 입금 내역 ===== -->
+      <div class="panel" id="tab-history">
+        <div class="card">
+          <div class="card-title">📋 입금 내역 검색 (최근 1년)</div>
+          <div class="alert alert-info" style="margin-bottom:14px">
+            💡 수취인명, 계좌번호, 상부점으로 검색해주세요. 검색어 입력 후 조회 버튼을 누르면 결과가 표시됩니다.
+          </div>
+          <div class="btn-row" style="margin-bottom:0">
+            <input type="text" class="search-input" id="historySearch" placeholder="수취인 / 계좌번호 / 상부점..." style="width:280px"
+              onkeydown="if(event.key==='Enter') searchHistory()">
+            <button class="btn btn-primary" onclick="searchHistory()">🔎 조회</button>
+            <button class="btn btn-outline" onclick="clearHistory()">✕ 초기화</button>
+            <span class="msg-text" id="historyMsg" style="margin-left:auto"></span>
+          </div>
+        </div>
+  
+        <!-- 결과 테이블 - 검색 후에만 표시 -->
+        <div class="card" id="historyResultCard" style="display:none">
+          <div class="card-title" id="historyResultTitle">검색 결과</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>입금일자</th><th>수취인</th><th>은행</th><th>계좌번호</th><th>금액</th><th>상부점</th><th>통장표시</th></tr>
+              </thead>
+              <tbody id="historyTbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="historyPagination"></div>
+        </div>
+      </div>
+
+  <!-- ===== 탭4: 통계 ===== -->
+      <div class="panel" id="tab-stats">
+        <div class="card">
+          <div class="card-title">📊 최근 1개월 통계</div>
+          <div class="stats-row" id="statsRow"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div class="card-title">법인별 지급액</div>
+              <div id="statsBySangbu"></div>
+            </div>
+            <div>
+              <div class="card-title">일별 지급액 (최근 10일)</div>
+              <div id="statsByDate"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
 </div><!-- /main -->
 
@@ -2238,6 +2460,519 @@ function renderVerify(wrongItems, amtMismatch, okItems, notPaidItems, finalTotal
 // ============================================================
 initDates();
 document.getElementById('tab-generate').style.display = 'block';
+// ============================================================
+// DB 연동 - Google Apps Script (fetch 방식)
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz9godtiLixYmy3VF3fyLfpC-kLzLpBaV7Q-S7OwAaGRNkHjry_fvClisHonmVVnV3n/exec';
+let DB_SESSION = '';
+let DB_USER    = '';
+
+// 저장된 세션 복원
+try {
+  DB_SESSION = localStorage.getItem('saeumpum_db_session') || '';
+  DB_USER    = localStorage.getItem('saeumpum_db_user')    || '';
+  if (DB_USER) {
+    const bar = document.getElementById('dbUserBar');
+    const lbl = document.getElementById('dbUserLabel');
+    if (bar && lbl) { bar.style.display='flex'; lbl.textContent='👤 '+DB_USER; }
+  }
+} catch(e) {}
+
+async function gasApi(action, params = {}) {
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, sessionToken: DB_SESSION, ...params }),
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch { return { ok: false, error: '응답 파싱 실패: ' + text.slice(0,100) }; }
+  } catch(e) {
+    return { ok: false, error: '서버 연결 실패: ' + e.message };
+  }
+}
+
+function api(action, params = {}) { return gasApi(action, params); }
+
+function checkDbLogin() {
+  if (!DB_SESSION) {
+    document.getElementById('dbLoginOverlay').style.display = 'flex';
+  }
+}
+
+async function doDbLogin() {
+  const id  = document.getElementById('dbLoginId').value.trim();
+  const pw  = document.getElementById('dbLoginPw').value;
+  const err = document.getElementById('dbLoginErr');
+  const btn = document.getElementById('dbLoginBtn');
+  if (!id || !pw) { err.textContent = '아이디와 비밀번호를 입력해주세요.'; return; }
+  err.textContent = '로그인 중...'; btn.disabled = true;
+  const res = await gasApi('login', { username: id, password: pw });
+  btn.disabled = false;
+  if (res.ok) {
+    DB_SESSION = res.token; DB_USER = res.username;
+    try {
+      localStorage.setItem('saeumpum_db_session', DB_SESSION);
+      localStorage.setItem('saeumpum_db_user',    DB_USER);
+    } catch(e) {}
+    document.getElementById('dbLoginOverlay').style.display = 'none';
+    document.getElementById('dbLoginId').value = '';
+    document.getElementById('dbLoginPw').value = '';
+    err.textContent = '';
+    const bar = document.getElementById('dbUserBar');
+    const lbl = document.getElementById('dbUserLabel');
+    if (bar && lbl) { bar.style.display='flex'; lbl.textContent='👤 '+DB_USER; }
+    // 날짜 기본값
+    const today = new Date().toISOString().slice(0,10);
+    const dupDateEl  = document.getElementById('dupDate');
+    const saveDateEl = document.getElementById('saveDate');
+    if (dupDateEl  && !dupDateEl.value)  dupDateEl.value  = today;
+    if (saveDateEl && !saveDateEl.value) saveDateEl.value = today;
+  } else {
+    err.textContent = res.error || '로그인 실패';
+  }
+}
+
+function closeDbLogin() {
+  document.getElementById('dbLoginOverlay').style.display = 'none';
+  switchTab('tab-generate', document.querySelector('.tab-btn'));
+}
+
+function doDbLogout() {
+  DB_SESSION = ''; DB_USER = '';
+  try { localStorage.removeItem('saeumpum_db_session'); localStorage.removeItem('saeumpum_db_user'); } catch(e) {}
+  const bar = document.getElementById('dbUserBar');
+  if (bar) bar.style.display = 'none';
+  alert('DB 로그아웃됐습니다.');
+}
+
+
+// ── Index 함수 ──
+
+// ── 상태 ──
+let SESSION_TOKEN = '';
+let dupData = null;
+let saveData = null;
+let historyPage = 1;
+
+// ── API 호출 (google.script.run - fetch 불필요, CORS 문제 없음) ──
+
+async function handleBankFiles(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  const status = document.getElementById('status-bank');
+  status.textContent = '⏳ 파싱 중...';
+  bankFilesData = [];
+
+  for (const file of files) {
+    const data = await parseXlsx(file);
+    // 0행=타이틀, 1행=헤더 → data[0]이 헤더행
+    // header:1로 읽으면 이미 헤더가 컬럼명
+    // 하지만 맨 위 타이틀 행이 있으므로 첫번째 행 제거
+    const header = Object.keys(data[0] || {});
+    // 타이틀 행인지 확인: '대량이체내역조회' 포함이면 스킵하고 1행 제거
+    let rows = data;
+    if (rows.length && String(rows[0][header[0]] || '').includes('대량이체')) {
+      rows = rows.slice(1); // 실제 헤더행 제거
+    }
+
+    // 컬럼 매핑: 이체실행일/입금은행/입금계좌번호/이체금액(원)/받는분/받는분 통장표시/내부메모/처리결과
+    const mapped = rows
+      .filter(r => String(r['처리결과']||'').trim() === '정상')
+      .map(r => ({
+        date:    formatBankDate_(String(r['이체실행일']||'')),
+        bank:    String(r['입금은행']||'').trim(),
+        acc:     String(r['입금계좌번호']||'').replace(/[-\s]/g,'').trim(),
+        amt:     parseInt(String(r['이체금액(원)']||'0').replace(/[,\s]/g,''))||0,
+        name:    String(r['받는분']||'').trim(),
+        bankMemo:String(r['받는분 통장표시']||'인터넷사은금').trim(),
+        sangbu:  String(r['내부메모']||'').trim(),
+      }))
+      .filter(r => r.acc && r.amt > 0);
+
+    if (mapped.length) bankFilesData.push({ fileName: file.name, rows: mapped });
+  }
+
+  // 미리보기
+  if (bankFilesData.length) {
+    document.getElementById('zone-bank').classList.add('loaded');
+    const total = bankFilesData.reduce((a,f) => a+f.rows.length, 0);
+    const totalAmt = bankFilesData.reduce((a,f) => a+f.rows.reduce((b,r)=>b+r.amt,0), 0);
+    status.textContent = `✅ ${bankFilesData.length}개 파일, 총 ${total.toLocaleString()}건`;
+
+    document.getElementById('bankStats').innerHTML = `
+      <div class="stat-box"><div class="stat-label">파일 수</div><div class="stat-value" style="color:var(--accent)">${bankFilesData.length}</div></div>
+      <div class="stat-box"><div class="stat-label">총 건수</div><div class="stat-value" style="color:var(--green)">${total.toLocaleString()}</div></div>
+      <div class="stat-box"><div class="stat-label">총 금액</div><div class="stat-value" style="font-size:15px;color:var(--green)">${totalAmt.toLocaleString()}</div><div class="stat-sub">원</div></div>
+    `;
+
+    document.getElementById('bankPreviewTbody').innerHTML = bankFilesData.map(f => {
+      const dates = f.rows.map(r=>r.date).filter(Boolean).sort();
+      const amt = f.rows.reduce((a,r)=>a+r.amt,0);
+      const sangbu = [...new Set(f.rows.map(r=>r.sangbu))].join(', ');
+      return `<tr>
+        <td><b>${sangbu||f.fileName}</b></td>
+        <td>${f.rows.length.toLocaleString()}건</td>
+        <td style="font-size:11px">${dates[0]||''} ~ ${dates[dates.length-1]||''}</td>
+        <td style="font-family:monospace;color:var(--green)">${amt.toLocaleString()}원</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('bankPreview').style.display = 'block';
+    document.getElementById('btnBankSave').disabled = false;
+  }
+}
+
+function formatBankDate_(str) {
+  // '2026.01.02' → '2026-01-02'
+  return str.replace(/\./g, '-').slice(0,10);
+}
+
+async function runBankSave() {
+  if (!bankFilesData.length) return;
+  const total = bankFilesData.reduce((a,f)=>a+f.rows.length,0);
+  if (!confirm(`총 ${total.toLocaleString()}건을 DB에 저장하시겠습니까?
+(중복 저장 여부는 확인되지 않습니다)`)) return;
+
+  const btn = document.getElementById('btnBankSave');
+  const msg = document.getElementById('bankMsg');
+  btn.disabled = true; msg.textContent = '💾 저장 중...'; msg.className = 'msg-text';
+
+  let savedTotal = 0;
+  try {
+    for (const f of bankFilesData) {
+      const res = await api('saveBankFile', { rows: f.rows });
+      if (!res.ok) throw new Error(res.error);
+      savedTotal += res.saved;
+    }
+    msg.textContent = `✅ 총 ${savedTotal.toLocaleString()}건 저장 완료`;
+    msg.className = 'msg-text ok';
+    document.getElementById('zone-bank').classList.remove('loaded');
+    document.getElementById('zone-bank').classList.add('loaded');
+  } catch(e) {
+    msg.textContent = `❌ ${e.message}`; msg.className = 'msg-text err';
+  }
+  btn.disabled = false;
+}
+
+// ── 중복 건 엑셀 다운로드 ──
+function downloadDupExcel() {
+  const res = window._dupResults;
+  if (!res || !res.results) { alert('먼저 중복 체크를 실행해주세요.'); return; }
+
+  const dupRows = res.results.filter(r => r.isDuplicate);
+  if (!dupRows.length) { alert('중복 의심 건이 없습니다.'); return; }
+
+  const wb   = XLSX.utils.book_new();
+  const COLS = ['수취인','고객명','은행','계좌번호','금액','상부점','이전입금일','이전금액','이전상부점','이전고객명'];
+
+  const data = dupRows.map(r => {
+    const h = r.history && r.history[0] ? r.history[0] : {};
+    return {
+      '수취인':    r.수취인   || '',
+      '고객명':    r.고객명   || '',
+      '은행':      r.은행     || '',
+      '계좌번호':  r.계좌번호 || '',
+      '금액':      r.금액     || 0,
+      '상부점':    r.상부점   || '',
+      '이전입금일': h.date    || '',
+      '이전금액':  h.amt      || 0,
+      '이전상부점': h.sangbu  || '',
+      '이전고객명': h.custName|| h.name || '',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data, { header: COLS });
+  ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:22},{wch:10},{wch:10},{wch:12},{wch:10},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, '중복의심');
+
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.writeFile(wb, `중복체크결과_${today}.xlsx`);
+}
+
+
+function parseXlsx(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        // 컬럼명 trim + 자동 매핑
+        const data = raw.map(row => normalizeColumns(row));
+        resolve(data);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// cleanAcc - v2 사용
+// parseAmt - v2 사용
+
+// ── 중복 체크 ──
+async function handleDupFile(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById('status-dup');
+  status.textContent = '⏳ 파싱 중...';
+  try {
+    dupData = await parseXlsx(file);
+    document.getElementById('zone-dup').classList.add('loaded');
+    status.textContent = `✅ ${dupData.length}건 로드됨`;
+    document.getElementById('btnDupCheck').disabled = false;
+  } catch(e) {
+    status.textContent = `❌ ${e.message}`;
+  }
+}
+
+async function runDupCheck() {
+  if (!dupData) return;
+  const btn = document.getElementById('btnDupCheck');
+  const msg = document.getElementById('dupMsg');
+  btn.disabled = true;
+
+  const payDate = document.getElementById('dupDate').value;
+  if (!payDate) { alert('이체 날짜를 선택해주세요.'); btn.disabled=false; return; }
+
+  // 이체 파일 데이터 정규화
+  const payments = dupData.map(r => ({
+    계좌번호: cleanAcc(r['계좌'] || r['계좌번호'] || ''),
+    수취인:   String(r['수취인']||'').trim(),
+    금액:     parseAmt(r['금액']),
+    은행:     String(r['은행']||'').trim(),
+    상부점:   String(r['상부점']||'').trim(),
+    고객명:   String(r['고객명']||'').trim(),
+  })).filter(p => p.계좌번호);
+
+  // 진행률 표시 (청크 단위 조회 - Apps Script 타임아웃 방지)
+  const CHUNK = 50;
+  const total  = payments.length;
+  let allResults = [];
+  let dupCount = 0;
+
+  for (let i = 0; i < total; i += CHUNK) {
+    const chunk = payments.slice(i, i + CHUNK);
+    const done  = Math.min(i + CHUNK, total);
+    const pct   = Math.round(done / total * 100);
+    msg.textContent = `🔍 DB 조회 중... ${done}/${total}건 (${pct}%)`;
+    msg.className = 'msg-text';
+
+    try {
+      const res = await api('checkDuplicate', { payments: chunk, payDate });
+      if (!res.ok) throw new Error(res.error);
+      allResults = allResults.concat(res.results);
+      dupCount += res.dupCount;
+    } catch(e) {
+      msg.textContent = `❌ ${e.message}`; msg.className = 'msg-text err';
+      btn.disabled = false; return;
+    }
+  }
+
+  const combined = { results: allResults, dupCount, checkedCount: total };
+  renderDupResult(combined);
+  msg.textContent = `✅ 완료: 중복 ${dupCount}건 / 전체 ${total}건`;
+  msg.className = 'msg-text ' + (dupCount > 0 ? 'err' : 'ok');
+  btn.disabled = false;
+}
+
+function renderDupResult(res) {
+  document.getElementById('dupResult').style.display = 'block';
+  // 중복 건 저장 (엑셀 다운로드용)
+  window._dupResults = res;
+
+  const dupCnt    = res.dupCount;
+  const familyCnt = res.results.filter(r => r.isFamilyAcct).length;
+  const okCnt     = res.results.filter(r => !r.isDuplicate && !r.isFamilyAcct).length;
+  document.getElementById('dupStats').innerHTML = `
+    <div class="stat-box"><div class="stat-label">전체 체크</div><div class="stat-value" style="color:var(--accent)">${res.checkedCount}</div></div>
+    <div class="stat-box"><div class="stat-label">✅ 정상</div><div class="stat-value" style="color:var(--green)">${okCnt}</div></div>
+    <div class="stat-box"><div class="stat-label">👨‍👩‍👧 가족계좌</div><div class="stat-value" style="color:var(--yellow)">${familyCnt}</div><div class="stat-sub">동일계좌·다른고객 (정상)</div></div>
+    <div class="stat-box"><div class="stat-label">🚨 중복 의심</div><div class="stat-value" style="color:var(--red)">${dupCnt}</div><div class="stat-sub">동일계좌·동일고객</div></div>
+  `;
+
+  // 중복 건 먼저
+  const sorted = [...res.results].sort((a,b) => b.isDuplicate - a.isDuplicate);
+  document.getElementById('dupTbody').innerHTML = sorted.map((r, i) => {
+    const isDup    = r.isDuplicate;
+    const isFamily = r.isFamilyAcct;
+    const histHtml = isDup ? r.history.slice(0,3).map(h =>
+      `<div style="font-size:11px;color:var(--red)">📅 ${h.date} / ${h.amt.toLocaleString()}원 / ${h.sangbu}${h.custName?' / '+h.custName:''}</div>`
+    ).join('') : '';
+    const familyHtml = isFamily ? r.familyHistory.slice(0,2).map(h =>
+      `<div style="font-size:11px;color:var(--yellow)">📅 ${h.date} / ${h.custName||h.name} / ${h.sangbu}</div>`
+    ).join('') : '';
+
+    const rowClass = isDup ? 'row-dup' : isFamily ? 'row-warn' : 'row-ok';
+    const badge    = isDup
+      ? '<span class="badge badge-red">🚨 중복</span>'
+      : isFamily
+        ? '<span class="badge badge-yellow">👨‍👩‍👧 가족계좌</span>'
+        : '<span class="badge badge-green">✅ 정상</span>';
+
+    return `<tr class="${rowClass}">
+      <td style="color:var(--text3)">${i+1}</td>
+      <td>${badge}</td>
+      <td><b>${r.수취인||'-'}</b></td>
+      <td style="color:var(--text2)">${r.고객명||''}</td>
+      <td>${r.은행||''}</td>
+      <td style="font-family:monospace">${r.계좌번호}</td>
+      <td style="font-family:monospace;color:var(--green);font-weight:700">${(r.금액||0).toLocaleString()}</td>
+      <td><span class="badge badge-gray">${r.상부점||''}</span></td>
+      <td>${histHtml||familyHtml||'<span style="color:var(--text3)">-</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 입금 저장 ──
+async function handleSaveFile(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const status = document.getElementById('status-save');
+  status.textContent = '⏳ 파싱 중...';
+  try {
+    saveData = await parseXlsx(file);
+    document.getElementById('zone-save').classList.add('loaded');
+    status.textContent = `✅ ${saveData.length}건 로드됨`;
+    document.getElementById('btnSave').disabled = false;
+  } catch(e) { status.textContent = `❌ ${e.message}`; }
+}
+
+async function runSave() {
+  if (!saveData) return;
+  const payDate = document.getElementById('saveDate').value;
+  if (!payDate) { alert('입금 날짜를 선택해주세요.'); return; }
+
+  const btn = document.getElementById('btnSave');
+  const msg = document.getElementById('saveMsg');
+  if (!confirm(`${payDate} 기준 ${saveData.length}건을 DB에 저장하시겠습니까?`)) return;
+
+  btn.disabled = true; msg.textContent = '💾 저장 중...'; msg.className = 'msg-text';
+
+  const payments = saveData.map(r => ({
+    은행:        String(r['은행']||'').trim(),
+    계좌번호:    cleanAcc(r['계좌']||r['계좌번호']||''),
+    금액:        parseAmt(r['금액']),
+    수취인:      String(r['수취인']||'').trim(),
+    주민번호:    String(r['주민번호']||'').trim(),
+    연락처:      String(r['연락처']||'').trim(),
+    받는분통장표시: String(r['받는분통장표시']||'인터넷사은금').trim(),
+    상부점:      String(r['상부점']||'').trim(),
+    소스:        '',
+    고객명:      String(r['수취인']||'').trim(),
+  })).filter(p => p.계좌번호 && p.금액 > 0);
+
+  try {
+    const res = await api('savePayments', { payments, payDate });
+    if (!res.ok) throw new Error(res.error);
+    msg.textContent = `✅ ${res.saved}건 저장 완료 (${res.sheet})`;
+    msg.className = 'msg-text ok';
+    // 저장 후 히스토리 새로고침
+    loadHistory(1);
+  } catch(e) {
+    msg.textContent = `❌ ${e.message}`; msg.className = 'msg-text err';
+  }
+  btn.disabled = false;
+}
+
+// ── 내역 검색 ──
+async function searchHistory() {
+  const keyword = document.getElementById('historySearch').value.trim();
+  if (!keyword) { alert('검색어를 입력해주세요.'); return; }
+  await loadHistory(1);
+}
+
+function clearHistory() {
+  document.getElementById('historySearch').value = '';
+  document.getElementById('historyResultCard').style.display = 'none';
+  document.getElementById('historyMsg').textContent = '';
+}
+
+async function loadHistory(page) {
+  const keyword = document.getElementById('historySearch').value.trim();
+  if (!keyword) return; // 검색어 없으면 조회 안 함
+  historyPage = page;
+  const msg = document.getElementById('historyMsg');
+  msg.textContent = '조회 중...';
+
+  try {
+    const res = await api('getHistory', { page, keyword });
+    if (!res.ok) throw new Error(res.error);
+
+    // 결과 카드 표시
+    const resultCard = document.getElementById('historyResultCard');
+    resultCard.style.display = 'block';
+    document.getElementById('historyResultTitle').textContent =
+      `검색 결과: "${keyword}" — 총 ${res.total.toLocaleString()}건`;
+
+    if (res.rows.length === 0) {
+      document.getElementById('historyTbody').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">검색 결과가 없습니다.</td></tr>';
+      document.getElementById('historyPagination').innerHTML = '';
+      msg.textContent = '';
+      return;
+    }
+
+    document.getElementById('historyTbody').innerHTML = res.rows.map(r =>
+      `<tr>
+        <td>${r.입금일자}</td>
+        <td><b>${r.수취인}</b></td>
+        <td>${r.은행}</td>
+        <td style="font-family:monospace">${r.계좌번호}</td>
+        <td style="font-family:monospace;color:var(--green);font-weight:700">${Number(r.금액).toLocaleString()}</td>
+        <td><span class="badge badge-gray">${r.상부점}</span></td>
+        <td>${r.통장표시}</td>
+      </tr>`
+    ).join('');
+
+    // 페이지네이션
+    let pgHtml = `<button class="page-btn" onclick="loadHistory(${page-1})" ${page<=1?'disabled':''}>◀</button>`;
+    const start = Math.max(1, page-2), end = Math.min(res.totalPages, page+2);
+    for (let p = start; p <= end; p++) {
+      pgHtml += `<button class="page-btn ${p===page?'active':''}" onclick="loadHistory(${p})">${p}</button>`;
+    }
+    pgHtml += `<button class="page-btn" onclick="loadHistory(${page+1})" ${page>=res.totalPages?'disabled':''}>▶</button>`;
+    pgHtml += `<span style="font-size:11px;color:var(--text2);margin-left:8px">총 ${res.total.toLocaleString()}건 중 ${page}페이지</span>`;
+    document.getElementById('historyPagination').innerHTML = pgHtml;
+    msg.textContent = '';
+  } catch(e) {
+    msg.textContent = `❌ ${e.message}`;
+    msg.className = 'msg-text err';
+  }
+}
+
+// ── 통계 ──
+async function loadStats() {
+  try {
+    const res = await api('getStats');
+    if (!res.ok) return;
+
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box"><div class="stat-label">최근 1개월 건수</div><div class="stat-value" style="color:var(--accent)">${res.totalCnt.toLocaleString()}</div></div>
+      <div class="stat-box"><div class="stat-label">최근 1개월 지급액</div><div class="stat-value" style="color:var(--green);font-size:16px">${res.totalAmt.toLocaleString()}</div><div class="stat-sub">원</div></div>
+    `;
+
+    // 법인별
+    const sangbuHtml = Object.entries(res.bySangbu)
+      .sort((a,b) => b[1]-a[1])
+      .map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border2);font-size:12px">
+        <span><span class="badge badge-gray">${k}</span></span>
+        <span style="font-weight:700;font-family:monospace">${v.toLocaleString()}원</span>
+      </div>`).join('');
+    document.getElementById('statsBySangbu').innerHTML = sangbuHtml || '<div style="color:var(--text2);font-size:12px">데이터 없음</div>';
+
+    // 일별 (최근 10일)
+    const dateHtml = Object.entries(res.byDate)
+      .sort((a,b) => b[0].localeCompare(a[0])).slice(0,10)
+      .map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border2);font-size:12px">
+        <span>${k}</span>
+        <span style="font-weight:700;font-family:monospace">${v.toLocaleString()}원</span>
+      </div>`).join('');
+    document.getElementById('statsByDate').innerHTML = dateHtml || '<div style="color:var(--text2);font-size:12px">데이터 없음</div>';
+  } catch(e) { console.error(e); }
+}
+
 </script>
 </body>
 </html>
