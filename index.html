@@ -439,6 +439,34 @@
 </head>
 <body>
 
+<!-- ══ 로그인 화면 ══ -->
+<div id="loginScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)">
+  <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:40px;width:340px;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+    <div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:6px">💰 사은품 입금 검증 시스템</div>
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:28px">웨이브넷 유통사업부</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">아이디</div>
+      <input type="text" id="loginId" placeholder="아이디 입력"
+        style="width:100%;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">비밀번호</div>
+      <input type="password" id="loginPw" placeholder="비밀번호 입력"
+        style="width:100%;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="loginErr" style="color:#cf222e;font-size:12px;text-align:center;margin-bottom:10px;min-height:18px"></div>
+    <button onclick="doLogin()" id="loginBtn"
+      style="width:100%;padding:10px;background:#0969da;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">
+      로그인
+    </button>
+  </div>
+</div>
+
+<!-- ══ 메인 앱 ══ -->
+<div id="mainApp" style="display:none">
+
 <header>
   <div class="logo">💰 사은품 입금 검증 시스템</div>
   <div class="subtitle">웨이브넷 · 유통사업부</div>
@@ -453,15 +481,15 @@
       <button class="tab-btn" onclick="switchTab('tab-extra', this)">🎁 추천후기 · 상품권</button>
       <button class="tab-btn" onclick="switchTab('tab-verify', this)">🔍 입금 검증</button>
       <span style="display:inline-block;width:1px;height:20px;background:var(--border2);margin:0 6px;vertical-align:middle"></span>
-      <button class="tab-btn" onclick="switchTab('tab-dup',this);checkDbLogin()" style="color:#7c3aed">🔁 중복 체크</button>
-      <button class="tab-btn" onclick="switchTab('tab-save',this);checkDbLogin()" style="color:#7c3aed">💾 입금 저장</button>
-      <button class="tab-btn" onclick="switchTab('tab-bank',this);checkDbLogin()" style="color:#7c3aed">🏦 은행파일</button>
-      <button class="tab-btn" onclick="switchTab('tab-history',this);checkDbLogin()" style="color:#7c3aed">📋 내역 검색</button>
-      <button class="tab-btn" onclick="switchTab('tab-stats',this);checkDbLogin()" style="color:#7c3aed">📊 통계</button>
+      <button class="tab-btn" onclick="switchTab('tab-dup',this)" style="color:#7c3aed">🔁 중복 체크</button>
+      <button class="tab-btn" onclick="switchTab('tab-save',this)" style="color:#7c3aed">💾 입금 저장</button>
+      <button class="tab-btn" onclick="switchTab('tab-bank',this)" style="color:#7c3aed">🏦 은행파일</button>
+      <button class="tab-btn" onclick="switchTab('tab-history',this)" style="color:#7c3aed">📋 내역 검색</button>
+      <button class="tab-btn" onclick="switchTab('tab-stats',this)" style="color:#7c3aed">📊 통계</button>
     </div>
     <div id="dbUserBar" style="display:none;font-size:11px;color:var(--text2);padding:0 8px;white-space:nowrap">
       <span id="dbUserLabel"></span>
-      <button onclick="doDbLogout()" style="margin-left:6px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:11px;cursor:pointer">로그아웃</button>
+      <button onclick="doLogout()" style="margin-left:6px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:11px;cursor:pointer">로그아웃</button>
     </div>
   </div>
 
@@ -839,24 +867,6 @@
 
   </div><!-- /tab-verify -->
 
-  <!-- DB 로그인 오버레이 -->
-  <div id="dbLoginOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:12px;padding:36px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-      <div style="font-size:16px;font-weight:700;text-align:center;margin-bottom:4px">🔐 DB 로그인</div>
-      <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:20px">입금 DB 접근 권한이 필요합니다</div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">아이디</div>
-        <input type="text" id="dbLoginId" placeholder="아이디" style="width:100%;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')doDbLogin()">
-      </div>
-      <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">비밀번호</div>
-        <input type="password" id="dbLoginPw" placeholder="비밀번호" style="width:100%;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;font-size:13px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')doDbLogin()">
-      </div>
-      <div id="dbLoginErr" style="color:#cf222e;font-size:12px;text-align:center;margin-bottom:10px;min-height:18px"></div>
-      <button onclick="doDbLogin()" id="dbLoginBtn" style="width:100%;padding:10px;background:#0969da;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">로그인</button>
-      <button onclick="closeDbLogin()" style="width:100%;padding:8px;background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;margin-top:6px">취소</button>
-    </div>
-  </div>
 
 
   <!-- ===== 탭1: 중복 체크 ===== -->
@@ -2467,16 +2477,18 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbz9godtiLixYmy3VF3fyLfp
 let DB_SESSION = '';
 let DB_USER    = '';
 
-// 저장된 세션 복원
-try {
-  DB_SESSION = localStorage.getItem('saeumpum_db_session') || '';
-  DB_USER    = localStorage.getItem('saeumpum_db_user')    || '';
-  if (DB_USER) {
-    const bar = document.getElementById('dbUserBar');
-    const lbl = document.getElementById('dbUserLabel');
-    if (bar && lbl) { bar.style.display='flex'; lbl.textContent='👤 '+DB_USER; }
-  }
-} catch(e) {}
+// 앱 시작: 저장된 세션 있으면 바로 메인으로
+(function() {
+  try {
+    const saved = localStorage.getItem('saeumpum_db_session');
+    const savedUser = localStorage.getItem('saeumpum_db_user');
+    if (saved && savedUser) {
+      DB_SESSION = saved;
+      DB_USER    = savedUser;
+      showMainApp(savedUser);
+    }
+  } catch(e) {}
+})();
 
 async function gasApi(action, params = {}) {
   try {
@@ -2495,17 +2507,29 @@ async function gasApi(action, params = {}) {
 
 function api(action, params = {}) { return gasApi(action, params); }
 
-function checkDbLogin() {
-  if (!DB_SESSION) {
-    document.getElementById('dbLoginOverlay').style.display = 'flex';
-  }
+
+// 메인 앱 표시
+function showMainApp(username) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  const lbl = document.getElementById('dbUserLabel');
+  const bar = document.getElementById('dbUserBar');
+  if (lbl) lbl.textContent = '👤 ' + username;
+  if (bar) bar.style.display = 'flex';
+  // 날짜 기본값 세팅
+  const today = new Date().toISOString().slice(0,10);
+  ['dupDate','saveDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = today;
+  });
+  initDates();
 }
 
-async function doDbLogin() {
-  const id  = document.getElementById('dbLoginId').value.trim();
-  const pw  = document.getElementById('dbLoginPw').value;
-  const err = document.getElementById('dbLoginErr');
-  const btn = document.getElementById('dbLoginBtn');
+async function doLogin() {
+  const id  = document.getElementById('loginId').value.trim();
+  const pw  = document.getElementById('loginPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
   if (!id || !pw) { err.textContent = '아이디와 비밀번호를 입력해주세요.'; return; }
   err.textContent = '로그인 중...'; btn.disabled = true;
   const res = await gasApi('login', { username: id, password: pw });
@@ -2516,35 +2540,23 @@ async function doDbLogin() {
       localStorage.setItem('saeumpum_db_session', DB_SESSION);
       localStorage.setItem('saeumpum_db_user',    DB_USER);
     } catch(e) {}
-    document.getElementById('dbLoginOverlay').style.display = 'none';
-    document.getElementById('dbLoginId').value = '';
-    document.getElementById('dbLoginPw').value = '';
-    err.textContent = '';
-    const bar = document.getElementById('dbUserBar');
-    const lbl = document.getElementById('dbUserLabel');
-    if (bar && lbl) { bar.style.display='flex'; lbl.textContent='👤 '+DB_USER; }
-    // 날짜 기본값
-    const today = new Date().toISOString().slice(0,10);
-    const dupDateEl  = document.getElementById('dupDate');
-    const saveDateEl = document.getElementById('saveDate');
-    if (dupDateEl  && !dupDateEl.value)  dupDateEl.value  = today;
-    if (saveDateEl && !saveDateEl.value) saveDateEl.value = today;
+    showMainApp(DB_USER);
   } else {
-    err.textContent = res.error || '로그인 실패';
+    err.textContent = res.error || '아이디 또는 비밀번호가 틀렸습니다.';
   }
 }
 
-function closeDbLogin() {
-  document.getElementById('dbLoginOverlay').style.display = 'none';
-  switchTab('tab-generate', document.querySelector('.tab-btn'));
-}
-
-function doDbLogout() {
+function doLogout() {
   DB_SESSION = ''; DB_USER = '';
-  try { localStorage.removeItem('saeumpum_db_session'); localStorage.removeItem('saeumpum_db_user'); } catch(e) {}
-  const bar = document.getElementById('dbUserBar');
-  if (bar) bar.style.display = 'none';
-  alert('DB 로그아웃됐습니다.');
+  try {
+    localStorage.removeItem('saeumpum_db_session');
+    localStorage.removeItem('saeumpum_db_user');
+  } catch(e) {}
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginId').value = '';
+  document.getElementById('loginPw').value = '';
+  document.getElementById('loginErr').textContent = '';
 }
 
 
@@ -2974,5 +2986,6 @@ async function loadStats() {
 }
 
 </script>
+</div><!-- /mainApp -->
 </body>
 </html>
