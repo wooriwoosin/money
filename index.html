@@ -2801,11 +2801,10 @@ async function runDupCheck() {
     고객명:   String(r['고객명']||'').trim(),
   })).filter(p => p.계좌번호);
 
-  // 진행률 표시 (청크 단위 조회 - Apps Script 타임아웃 방지)
-  const CHUNK = 50;
+  const CHUNK = 100;  // 중복체크는 DB 읽기라 더 크게 가능
   const total  = payments.length;
   let allResults = [];
-  let dupCount = 0;
+  let dupCount   = 0;
 
   for (let i = 0; i < total; i += CHUNK) {
     const chunk = payments.slice(i, i + CHUNK);
@@ -2813,18 +2812,16 @@ async function runDupCheck() {
     const pct   = Math.round(done / total * 100);
     msg.textContent = `🔍 DB 조회 중... ${done}/${total}건 (${pct}%)`;
     msg.className = 'msg-text';
-
     try {
       const res = await api('checkDuplicate', { payments: chunk, payDate });
       if (!res.ok) throw new Error(res.error);
       allResults = allResults.concat(res.results);
-      dupCount += res.dupCount;
+      dupCount  += res.dupCount;
     } catch(e) {
       msg.textContent = `❌ ${e.message}`; msg.className = 'msg-text err';
       btn.disabled = false; return;
     }
   }
-
   const combined = { results: allResults, dupCount, checkedCount: total };
   renderDupResult(combined);
   msg.textContent = `✅ 완료: 중복 ${dupCount}건 / 전체 ${total}건`;
@@ -2900,33 +2897,50 @@ async function runSave() {
 
   const btn = document.getElementById('btnSave');
   const msg = document.getElementById('saveMsg');
-  if (!confirm(`${payDate} 기준 ${saveData.length}건을 DB에 저장하시겠습니까?`)) return;
-
-  btn.disabled = true; msg.textContent = '💾 저장 중...'; msg.className = 'msg-text';
 
   const payments = saveData.map(r => ({
-    은행:        String(r['은행']||'').trim(),
-    계좌번호:    cleanAcc(r['계좌']||r['계좌번호']||''),
-    금액:        parseAmt(r['금액']),
-    수취인:      String(r['수취인']||'').trim(),
-    주민번호:    String(r['주민번호']||'').trim(),
-    연락처:      String(r['연락처']||'').trim(),
+    은행:           String(r['은행']||'').trim(),
+    계좌번호:       cleanAcc(r['계좌']||r['계좌번호']||''),
+    금액:           parseAmt(r['금액']),
+    수취인:         String(r['수취인']||'').trim(),
+    주민번호:       String(r['주민번호']||'').trim(),
+    연락처:         String(r['연락처']||'').trim(),
     받는분통장표시: String(r['받는분통장표시']||'인터넷사은금').trim(),
-    상부점:      String(r['상부점']||'').trim(),
-    소스:        '',
-    고객명:      String(r['수취인']||'').trim(),
+    상부점:         String(r['상부점']||'').trim(),
+    소스:           '',
+    고객명:         String(r['고객명']||r['수취인']||'').trim(),
   })).filter(p => p.계좌번호 && p.금액 > 0);
 
-  try {
-    const res = await api('savePayments', { payments, payDate });
-    if (!res.ok) throw new Error(res.error);
-    msg.textContent = `✅ ${res.saved}건 저장 완료 (${res.sheet})`;
-    msg.className = 'msg-text ok';
-    // 저장 후 히스토리 새로고침
-    loadHistory(1);
-  } catch(e) {
-    msg.textContent = `❌ ${e.message}`; msg.className = 'msg-text err';
+  if (!payments.length) { alert('저장할 데이터가 없습니다.'); return; }
+  if (!confirm(`${payDate} 기준 ${payments.length}건을 DB에 저장하시겠습니까?`)) return;
+
+  btn.disabled = true;
+  const CHUNK = 50;
+  const total  = payments.length;
+  let savedTotal = 0;
+  let lastSheet  = '';
+
+  for (let i = 0; i < total; i += CHUNK) {
+    const chunk = payments.slice(i, i + CHUNK);
+    const done  = Math.min(i + CHUNK, total);
+    const pct   = Math.round(done / total * 100);
+    msg.textContent = `💾 저장 중... ${done}/${total}건 (${pct}%)`;
+    msg.className = 'msg-text';
+
+    try {
+      const res = await api('savePayments', { payments: chunk, payDate });
+      if (!res.ok) throw new Error(res.error);
+      savedTotal += res.saved;
+      lastSheet   = res.sheet;
+    } catch(e) {
+      msg.textContent = `❌ ${i}건 저장 후 오류: ${e.message}`;
+      msg.className = 'msg-text err';
+      btn.disabled = false; return;
+    }
   }
+
+  msg.textContent = `✅ ${savedTotal}건 저장 완료 (${lastSheet})`;
+  msg.className = 'msg-text ok';
   btn.disabled = false;
 }
 
