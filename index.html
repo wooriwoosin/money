@@ -2490,6 +2490,9 @@ let DB_USER    = '';
   } catch(e) {}
 })();
 
+function cleanAcc(v) { return String(v||'').replace(/[-\s]/g,'').trim(); }
+function parseAmt(v)  { return parseInt(String(v||'0').replace(/[,\s]/g,''))||0; }
+
 async function gasApi(action, params = {}) {
   try {
     const res = await fetch(GAS_URL, {
