@@ -2579,7 +2579,7 @@ async function handleBankFiles(event) {
   bankFilesData = [];
 
   for (const file of files) {
-    const data = await parseXlsx(file);
+    const data = await parseXlsxRaw(file);  // 은행파일: 원본 컬럼명 사용
     // 0행=타이틀, 1행=헤더 → data[0]이 헤더행
     // header:1로 읽으면 이미 헤더가 컬럼명
     // 하지만 맨 위 타이틀 행이 있으므로 첫번째 행 제거
@@ -2705,6 +2705,26 @@ function downloadDupExcel() {
 }
 
 
+// 다양한 컬럼명 → 표준 컬럼명 자동 매핑
+function normalizeColumns(row) {
+  const COL_MAP = {
+    '사은품은행':    '은행',  '입금은행':      '은행',
+    '사은품계좌':    '계좌',  '입금계좌번호':  '계좌',  '계좌번호': '계좌',
+    '현금':          '금액',  '이체금액(원)':  '금액',  '이체금액': '금액',
+    '사은품예금주':  '수취인','받는분':        '수취인', '예금주':   '수취인',
+    '명의자 연락처': '연락처',
+    '사은품주민번호':'주민번호',
+    '내부메모':      '상부점',
+    '받는분 통장표시':'받는분통장표시',
+  };
+  const result = {};
+  for (const [k, v] of Object.entries(row)) {
+    const trimK = k.trim();
+    result[COL_MAP[trimK] || trimK] = v;
+  }
+  return result;
+}
+
 function parseXlsx(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -2715,6 +2735,28 @@ function parseXlsx(file) {
         const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
         // 컬럼명 trim + 자동 매핑
         const data = raw.map(row => normalizeColumns(row));
+        resolve(data);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// 은행파일 전용: 컬럼명 매핑 없이 원본 그대로 읽기
+function parseXlsxRaw(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        // 컬럼명 trim만 (매핑 없음)
+        const data = raw.map(row => {
+          const cleaned = {};
+          Object.keys(row).forEach(k => { cleaned[k.trim()] = row[k]; });
+          return cleaned;
+        });
         resolve(data);
       } catch(err) { reject(err); }
     };
