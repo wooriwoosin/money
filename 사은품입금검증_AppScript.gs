@@ -154,46 +154,59 @@ function cleanName_(raw) {
 function saveBankFile(rows, sangbuOverride) {
   if (!rows || !rows.length) return { ok: true, saved: 0 };
 
-  const ss   = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const now  = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
-
-  // 연도별로 그룹핑하여 해당 시트에 저장
-  const byYear = {};
-  for (const r of rows) {
-    const year = String(r.date || '').slice(0, 4) || new Date().getFullYear().toString();
-    if (!byYear[year]) byYear[year] = [];
-    byYear[year].push(r);
+  // 동시 저장 직렬화 (savePayments와 동일)
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (e) {
+    return { ok: false, error: '다른 저장이 진행 중입니다. 잠시 후 다시 시도해주세요.' };
   }
 
-  let totalSaved = 0;
-  for (const [year, yearRows] of Object.entries(byYear)) {
-    const sheetName = CONFIG.SHEET_PREFIX + year;
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(DB_HEADERS);
-      const header = sheet.getRange(1, 1, 1, DB_HEADERS.length);
-      header.setBackground('#4a4a6a').setFontColor('#ffffff').setFontWeight('bold');
-      sheet.setFrozenRows(1);
+  try {
+    const ss   = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const now  = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+
+    // 연도별로 그룹핑하여 해당 시트에 저장
+    const byYear = {};
+    for (const r of rows) {
+      const year = String(r.date || '').slice(0, 4) || new Date().getFullYear().toString();
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(r);
     }
-    const dbRows = yearRows.map(r => [
-      r.date || '',
-      r.bank || '',
-      String(r.acc || '').replace(/[-\s]/g, ''),
-      Number(r.amt) || 0,
-      r.name || '',
-      '',  // 주민번호
-      '',  // 연락처
-      r.bankMemo || '인터넷사은금',
-      r.sangbu || sangbuOverride || '',
-      '은행파일',  // 소스
-      '',  // 고객명 (은행파일엔 없음)
-      now,
-    ]);
-    sheet.getRange(sheet.getLastRow() + 1, 1, dbRows.length, DB_HEADERS.length).setValues(dbRows);
-    totalSaved += dbRows.length;
+
+    let totalSaved = 0;
+    for (const [year, yearRows] of Object.entries(byYear)) {
+      const sheetName = CONFIG.SHEET_PREFIX + year;
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.appendRow(DB_HEADERS);
+        const header = sheet.getRange(1, 1, 1, DB_HEADERS.length);
+        header.setBackground('#4a4a6a').setFontColor('#ffffff').setFontWeight('bold');
+        sheet.setFrozenRows(1);
+      }
+      const dbRows = yearRows.map(r => [
+        r.date || '',
+        r.bank || '',
+        String(r.acc || '').replace(/[-\s]/g, ''),
+        Number(r.amt) || 0,
+        r.name || '',
+        '',  // 주민번호
+        '',  // 연락처
+        r.bankMemo || '인터넷사은금',
+        r.sangbu || sangbuOverride || '',
+        '은행파일',  // 소스
+        '',  // 고객명 (은행파일엔 없음)
+        now,
+      ]);
+      sheet.getRange(sheet.getLastRow() + 1, 1, dbRows.length, DB_HEADERS.length).setValues(dbRows);
+      totalSaved += dbRows.length;
+    }
+    SpreadsheetApp.flush();  // 응답 반환 전 쓰기 확정
+    return { ok: true, saved: totalSaved };
+  } finally {
+    lock.releaseLock();
   }
-  return { ok: true, saved: totalSaved };
 }
 
 // ============================================================
@@ -283,41 +296,54 @@ function checkDuplicate(payments, payDate) {
 function savePayments(payments, payDate) {
   if (!payments || !payments.length) return { ok: true, saved: 0 };
 
-  const ss   = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-  const year = payDate ? payDate.slice(0, 4) : new Date().getFullYear().toString();
-  const sheetName = CONFIG.SHEET_PREFIX + year;
-
-  // 시트 없으면 생성
-  let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    sheet.appendRow(DB_HEADERS);
-    // 헤더 스타일
-    const header = sheet.getRange(1, 1, 1, DB_HEADERS.length);
-    header.setBackground('#4a4a6a').setFontColor('#ffffff').setFontWeight('bold');
-    sheet.setFrozenRows(1);
+  // 동시 저장 직렬화: getLastRow 경쟁·"too many simultaneous invocations" HTML 오류 방지
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (e) {
+    return { ok: false, error: '다른 저장이 진행 중입니다. 잠시 후 다시 시도해주세요.' };
   }
 
-  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
-  const rows = payments.map(p => [
-    payDate || Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'),
-    p.은행      || '',
-    String(p.계좌번호 || p.계좌 || '').replace(/[-\s]/g, ''),
-    Number(p.금액) || 0,
-    p.수취인    || '',
-    p.주민번호  || '',
-    p.연락처    || '',
-    p.받는분통장표시 || '인터넷사은금',
-    p.상부점    || '',
-    p.소스      || '',
-    cleanName_(p.고객명 || p.수취인 || ''),  // 특수기호 제거한 이름
-    now,
-  ]);
+  try {
+    const ss   = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const year = payDate ? payDate.slice(0, 4) : new Date().getFullYear().toString();
+    const sheetName = CONFIG.SHEET_PREFIX + year;
 
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, DB_HEADERS.length)
-       .setValues(rows);
+    // 시트 없으면 생성
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow(DB_HEADERS);
+      // 헤더 스타일
+      const header = sheet.getRange(1, 1, 1, DB_HEADERS.length);
+      header.setBackground('#4a4a6a').setFontColor('#ffffff').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
 
-  return { ok: true, saved: rows.length, sheet: sheetName };
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+    const rows = payments.map(p => [
+      payDate || Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'),
+      p.은행      || '',
+      String(p.계좌번호 || p.계좌 || '').replace(/[-\s]/g, ''),
+      Number(p.금액) || 0,
+      p.수취인    || '',
+      p.주민번호  || '',
+      p.연락처    || '',
+      p.받는분통장표시 || '인터넷사은금',
+      p.상부점    || '',
+      p.소스      || '',
+      cleanName_(p.고객명 || p.수취인 || ''),  // 특수기호 제거한 이름
+      now,
+    ]);
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, DB_HEADERS.length)
+         .setValues(rows);
+    SpreadsheetApp.flush();  // 응답 반환 전 쓰기 확정
+
+    return { ok: true, saved: rows.length, sheet: sheetName };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ============================================================

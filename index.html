@@ -2493,17 +2493,36 @@ let DB_USER    = '';
 function cleanAcc(v) { return String(v||'').replace(/[-\s]/g,'').trim(); }
 function parseAmt(v)  { return parseInt(String(v||'0').replace(/[,\s]/g,''))||0; }
 
-async function gasApi(action, params = {}) {
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// GAS 호출: 일시적 오류(HTML 로그인 페이지/네트워크 끊김) 자동 재시도
+async function gasApi(action, params = {}, _retry = 0) {
+  const MAX_RETRY = 3;               // 최초 1회 + 재시도 3회 = 총 4회
+  const backoff = 700 * Math.pow(2, _retry); // 0.7s → 1.4s → 2.8s
   try {
     const res = await fetch(GAS_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 단순요청 유지(CORS preflight 회피)
       body: JSON.stringify({ action, sessionToken: DB_SESSION, ...params }),
       redirect: 'follow',
     });
     const text = await res.text();
+
+    // 구글이 JSON 대신 HTML(로그인/안내/오류 페이지)을 반환한 경우 = 일시적 리다이렉트 오류
+    const looksHtml = /^\s*<(?:!doctype|html)/i.test(text);
+    if (looksHtml || !res.ok) {
+      if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
+      return { ok: false, error: 'GAS가 JSON 대신 페이지를 반환했습니다(재시도 초과). 로그아웃 후 재로그인하거나 시크릿창에서 시도해주세요.' };
+    }
+
     try { return JSON.parse(text); }
-    catch { return { ok: false, error: '응답 파싱 실패: ' + text.slice(0,100) }; }
+    catch {
+      if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
+      return { ok: false, error: '응답 파싱 실패: ' + text.slice(0,100) };
+    }
   } catch(e) {
+    // Failed to fetch 등 네트워크/리다이렉트 단계 오류 → 재시도
+    if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
     return { ok: false, error: '서버 연결 실패: ' + e.message };
   }
 }
@@ -2940,6 +2959,9 @@ async function runSave() {
       msg.className = 'msg-text err';
       btn.disabled = false; return;
     }
+
+    // 청크 간 간격 — 동시 실행/할당량 압박 완화 (마지막 청크 뒤엔 생략)
+    if (done < total) await sleep(350);
   }
 
   msg.textContent = `✅ ${savedTotal}건 저장 완료 (${lastSheet})`;
