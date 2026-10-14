@@ -201,6 +201,7 @@ grant execute on function app_find_by_accounts(text, text[])   to anon;
 grant execute on function app_get_history(text, int, text)     to anon;
 grant execute on function app_get_stats(text)                  to anon;
 
+-- 관리자 계정 생성: 'CHANGE_THIS_PASSWORD' 를 원하는 비밀번호로 바꿔서 실행하세요.
 insert into app_users (username, password_hash, role, name)
-values ('admin', crypt('wavenet2024!', gen_salt('bf')), 'admin', '관리자')
+values ('admin', crypt('CHANGE_THIS_PASSWORD', gen_salt('bf')), 'admin', '관리자')
 on conflict (username) do nothing;
