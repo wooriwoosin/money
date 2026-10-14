@@ -1054,6 +1054,7 @@
 </div><!-- /main -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ============================================================
 // 디버그 로그
@@ -2471,9 +2472,12 @@ function renderVerify(wrongItems, amtMismatch, okItems, notPaidItems, finalTotal
 initDates();
 document.getElementById('tab-generate').style.display = 'block';
 // ============================================================
-// DB 연동 - Google Apps Script (fetch 방식)
+// DB 연동 - Supabase (RPC 방식)
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz9godtiLixYmy3VF3fyLfpC-kLzLpBaV7Q-S7OwAaGRNkHjry_fvClisHonmVVnV3n/exec';
+const SUPABASE_URL = 'https://lbbmwuivlspspsqrhhyz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_KjH-j_kU6ScjSZocWLl6DQ_uTG5gzLm'; // 공개키(anon/publishable) — 노출돼도 안전
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let DB_SESSION = '';
 let DB_USER    = '';
 
@@ -2492,42 +2496,117 @@ let DB_USER    = '';
 
 function cleanAcc(v) { return String(v||'').replace(/[-\s]/g,'').trim(); }
 function parseAmt(v)  { return parseInt(String(v||'0').replace(/[,\s]/g,''))||0; }
-
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// GAS 호출: 일시적 오류(HTML 로그인 페이지/네트워크 끊김) 자동 재시도
-async function gasApi(action, params = {}, _retry = 0) {
-  const MAX_RETRY = 3;               // 최초 1회 + 재시도 3회 = 총 4회
-  const backoff = 700 * Math.pow(2, _retry); // 0.7s → 1.4s → 2.8s
+// 고객명 정제 (서버 cleanName_ 포팅: 슬래시 뒤 제거 + 특수기호 제거)
+function cleanNameClient(raw) {
+  if (!raw) return '';
+  const s = String(raw);
+  const i = s.indexOf('/');
+  const base = i >= 0 ? s.slice(0, i) : s;
+  return base.replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
+}
+
+// ── 중앙 디스패처: 기존 GAS 액션 → Supabase RPC 매핑 ──
+// 콜러(runSave/runDupCheck/runBankSave/loadHistory/loadStats/doLogin)는
+// 여전히 api('액션', {params}) 형태로 호출 → 내부만 Supabase로 교체됨.
+async function api(action, params = {}) {
   try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 단순요청 유지(CORS preflight 회피)
-      body: JSON.stringify({ action, sessionToken: DB_SESSION, ...params }),
-      redirect: 'follow',
-    });
-    const text = await res.text();
-
-    // 구글이 JSON 대신 HTML(로그인/안내/오류 페이지)을 반환한 경우 = 일시적 리다이렉트 오류
-    const looksHtml = /^\s*<(?:!doctype|html)/i.test(text);
-    if (looksHtml || !res.ok) {
-      if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
-      return { ok: false, error: 'GAS가 JSON 대신 페이지를 반환했습니다(재시도 초과). 로그아웃 후 재로그인하거나 시크릿창에서 시도해주세요.' };
+    switch (action) {
+      case 'login': {
+        const { data, error } = await sb.rpc('app_login', {
+          p_username: params.username, p_password: params.password });
+        if (error) throw error;
+        return data;
+      }
+      case 'savePayments': {
+        const { data, error } = await sb.rpc('app_save_payments', {
+          p_token: DB_SESSION, p_payments: params.payments, p_pay_date: params.payDate });
+        if (error) throw error;
+        return { ...data, sheet: 'payments' };
+      }
+      case 'saveBankFile': {
+        const { data, error } = await sb.rpc('app_save_bank', {
+          p_token: DB_SESSION, p_rows: params.rows });
+        if (error) throw error;
+        return data;
+      }
+      case 'checkDuplicate':
+        return await checkDuplicateClient(params.payments, params.payDate);
+      case 'getHistory': {
+        const { data, error } = await sb.rpc('app_get_history', {
+          p_token: DB_SESSION, p_page: params.page || 1, p_keyword: params.keyword || '' });
+        if (error) throw error;
+        return data;
+      }
+      case 'getStats': {
+        const { data, error } = await sb.rpc('app_get_stats', { p_token: DB_SESSION });
+        if (error) throw error;
+        return data;
+      }
+      default:
+        return { ok: false, error: '알 수 없는 액션: ' + action };
     }
-
-    try { return JSON.parse(text); }
-    catch {
-      if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
-      return { ok: false, error: '응답 파싱 실패: ' + text.slice(0,100) };
-    }
-  } catch(e) {
-    // Failed to fetch 등 네트워크/리다이렉트 단계 오류 → 재시도
-    if (_retry < MAX_RETRY) { await sleep(backoff); return gasApi(action, params, _retry + 1); }
-    return { ok: false, error: '서버 연결 실패: ' + e.message };
+  } catch (e) {
+    return { ok: false, error: '서버 오류: ' + (e.message || e) };
   }
 }
 
-function api(action, params = {}) { return gasApi(action, params); }
+// doLogin 이 gasApi 라는 이름으로 호출하므로 별칭 유지
+function gasApi(action, params = {}) { return api(action, params); }
+
+// 중복 체크: 서버 checkDuplicate 로직을 클라이언트로 포팅
+// (app_find_by_accounts 로 계좌별 과거 내역을 가져온 뒤 가족계좌 판정)
+async function checkDuplicateClient(payments, payDate) {
+  if (!payments || !payments.length) return { ok: true, results: [], dupCount: 0, checkedCount: 0 };
+
+  const accs = [...new Set(payments.map(p => cleanAcc(p.계좌번호 || p.계좌 || '')).filter(Boolean))];
+  const { data, error } = await sb.rpc('app_find_by_accounts', {
+    p_token: DB_SESSION, p_accounts: accs });
+  if (error) return { ok: false, error: error.message };
+  if (!data.ok) return data;
+
+  // 계좌 → 과거내역 맵
+  const accMap = {};
+  for (const h of (data.rows || [])) {
+    const key = cleanAcc(h.acc);
+    if (!accMap[key]) accMap[key] = [];
+    accMap[key].push({
+      date: h.date, amt: Number(h.amt) || 0,
+      name: String(h.name || ''), custName: String(h.custName || ''),
+      sangbu: String(h.sangbu || ''), bank: String(h.bank || ''),
+    });
+  }
+
+  const excludeDate = payDate || new Date().toISOString().slice(0, 10);
+
+  const results = payments.map(p => {
+    const acc  = cleanAcc(p.계좌번호 || p.계좌 || '');
+    const hist = accMap[acc] || [];
+    const prev = hist.filter(h => h.date !== excludeDate); // 이체 당일 제외
+
+    const payeeName = String(p.수취인 || '').trim();
+    const custName  = cleanNameClient(p.고객명 || p.수취인 || '');
+
+    const realDup = prev.filter(h => {
+      if (h.name && payeeName && h.name !== payeeName) return false;   // 수취인 다르면 중복 아님
+      if (h.custName && custName && h.custName !== custName) return false; // 고객명 다르면 가족계좌
+      return true;
+    });
+    const familyHistory = prev.filter(h => h.custName && custName && h.custName !== custName);
+
+    return {
+      계좌번호: acc, 수취인: p.수취인, 금액: p.금액, 은행: p.은행, 상부점: p.상부점,
+      고객명: custName,
+      isDuplicate:  realDup.length > 0,
+      isFamilyAcct: familyHistory.length > 0 && realDup.length === 0,
+      history: realDup, familyHistory,
+    };
+  });
+
+  const dupCount = results.filter(r => r.isDuplicate).length;
+  return { ok: true, results, dupCount, checkedCount: payments.length };
+}
 
 
 // 메인 앱 표시
@@ -2590,7 +2669,7 @@ let dupData = null;
 let saveData = null;
 let historyPage = 1;
 
-// ── API 호출 (google.script.run - fetch 불필요, CORS 문제 없음) ──
+// ── API 호출 (Supabase RPC - 위 api() 디스패처 사용) ──
 
 async function handleBankFiles(event) {
   const files = Array.from(event.target.files);
