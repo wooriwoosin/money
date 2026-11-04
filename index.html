@@ -631,17 +631,18 @@
 
       <!-- workline 붙여넣기 -->
       <div style="margin-bottom:12px;padding:12px 14px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:6px;">
-        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 workline에서 붙여넣기 (북마클릿)</div>
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">🔗 workline에서 붙여넣기 (북마클릿 1회 → 자점·협력·개통 한번에)</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">workline에서 북마크 클릭 → 복사된 데이터를 아래에 붙여넣고 <b>적용</b>을 누르면 3종이 자동 분배됩니다. (기준일도 자동 설정)</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-          <select id="worklineType" style="padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;">
-            <option value="jajeom">① 자점</option>
-            <option value="hyeomnyeok">② 협력</option>
-            <option value="gaetong">③ 개통</option>
+          <button class="btn btn-primary" onclick="applyWorkline()" style="padding:6px 16px;">📥 붙여넣기 적용</button>
+          <span style="font-size:11px;color:var(--text3);">단일 유형만 넣을 땐 →</span>
+          <select id="worklineType" style="padding:5px 9px;border:1px solid var(--border);border-radius:5px;font-size:12px;">
+            <option value="jajeom">자점</option>
+            <option value="hyeomnyeok">협력</option>
+            <option value="gaetong">개통</option>
           </select>
-          <button class="btn btn-primary" onclick="applyWorkline()" style="padding:6px 14px;">적용</button>
-          <span style="font-size:11px;color:var(--text2);">workline 북마클릿으로 복사한 데이터를 아래에 붙여넣고, 유형 선택 후 적용</span>
         </div>
-        <textarea id="worklinePaste" placeholder="workline 북마클릿 실행 → 복사된 데이터를 여기에 붙여넣기 (Ctrl+V)" style="width:100%;height:56px;border:1px solid var(--border);border-radius:5px;padding:8px;font-size:12px;font-family:monospace;box-sizing:border-box;"></textarea>
+        <textarea id="worklinePaste" placeholder="workline 북마클릿 실행 → 복사된 데이터를 여기에 붙여넣기 (Ctrl+V) → 적용" style="width:100%;height:56px;border:1px solid var(--border);border-radius:5px;padding:8px;font-size:12px;font-family:monospace;box-sizing:border-box;"></textarea>
       </div>
 
       <!-- 통장표시 선택 -->
@@ -1560,33 +1561,60 @@ function checkGenerateReady() {
   document.getElementById('btnGenerate').disabled = !ok;
 }
 
-// workline 북마클릿 데이터 붙여넣기 → 엑셀 업로드와 동일하게 state[key]에 적재
-function applyWorkline() {
-  const key = document.getElementById('worklineType').value; // jajeom/hyeomnyeok/gaetong
-  const ta  = document.getElementById('worklinePaste');
-  const txt = (ta.value || '').trim();
-  if (!txt) { alert('workline 북마클릿으로 복사한 데이터를 붙여넣어 주세요.'); return; }
-  let rows;
-  try { rows = JSON.parse(txt); }
-  catch (e) { alert('데이터 형식 오류(JSON 아님). 북마클릿을 다시 실행해 복사한 내용을 그대로 붙여넣어 주세요.\n\n' + e.message); return; }
-  if (!Array.isArray(rows) || !rows.length) { alert('데이터가 비어있습니다. (0건)'); return; }
-
+// 한 유형 적재 (엑셀 업로드와 동일하게 state[key]에 넣음)
+function loadWorklineKey(key, rows) {
   state[key] = rows;
   const zone = document.getElementById('zone-' + key);
   if (zone) zone.classList.add('loaded');
-
   const detected = detectJigeupDate(rows);
-  let dateMsg = '';
-  if (key === 'jajeom' && detected)      { document.getElementById('todayDate').value  = detected; dateMsg = ` → 기준일 ${detected}`; }
-  else if (key === 'hyeomnyeok' && detected) { document.getElementById('sundayDate').value = detected; dateMsg = ` → 협력기준일 ${detected}`; }
-
+  if (key === 'jajeom' && detected && !document.getElementById('todayDate').value)
+    document.getElementById('todayDate').value = detected;
+  if (key === 'hyeomnyeok' && detected && !document.getElementById('sundayDate').value)
+    document.getElementById('sundayDate').value = detected;
   const st = document.getElementById('status-' + key);
-  if (st) { st.textContent = `✅ workline ${rows.length}건 로드됨${dateMsg}`; st.className = 'upload-status'; }
+  if (st) { st.textContent = `✅ workline ${rows.length}건`; st.className = 'upload-status'; }
+  dbgLog(`[workline:${key}] ${rows.length}건 적용`);
+}
 
-  checkGenerateReady();
-  ta.value = '';
-  dbgLog(`[workline:${key}] ${rows.length}건 적용, 날짜감지=${detected || '없음'}`);
-  alert(`${key} 자리에 workline ${rows.length}건 적용 완료!\n이제 '필터링 & 미리보기'를 누르세요.`);
+// workline 북마클릿 데이터 붙여넣기
+//  - 통합 객체 {_meta,jajeom,hyeomnyeok,gaetong} → 3종 한번에 적재 (권장)
+//  - 단일 배열 → 드롭다운에서 고른 유형에 적재 (수동)
+function applyWorkline() {
+  const ta  = document.getElementById('worklinePaste');
+  const txt = (ta.value || '').trim();
+  if (!txt) { alert('workline 북마클릿으로 복사한 데이터를 붙여넣어 주세요.'); return; }
+  let parsed;
+  try { parsed = JSON.parse(txt); }
+  catch (e) { alert('데이터 형식 오류(JSON 아님). 북마클릿을 다시 실행해 복사한 내용을 그대로 붙여넣어 주세요.\n\n' + e.message); return; }
+
+  // 단일 배열 (구버전/수동)
+  if (Array.isArray(parsed)) {
+    if (!parsed.length) { alert('데이터가 비어있습니다. (0건)'); return; }
+    const key = document.getElementById('worklineType').value;
+    loadWorklineKey(key, parsed);
+    checkGenerateReady();
+    ta.value = '';
+    alert(`${key} 자리에 ${parsed.length}건 적용 완료!\n'필터링 & 미리보기'를 누르세요.`);
+    return;
+  }
+
+  // 통합 객체
+  if (parsed && typeof parsed === 'object') {
+    if (parsed._meta) {
+      if (parsed._meta.today)  document.getElementById('todayDate').value  = parsed._meta.today;
+      if (parsed._meta.sunday) document.getElementById('sundayDate').value = parsed._meta.sunday;
+    }
+    const summary = [];
+    ['jajeom', 'hyeomnyeok', 'gaetong'].forEach(k => {
+      if (Array.isArray(parsed[k])) { loadWorklineKey(k, parsed[k]); summary.push(`${k} ${parsed[k].length}건`); }
+    });
+    if (!summary.length) { alert('자점/협력/개통 데이터가 없습니다. 북마클릿 결과를 다시 확인해주세요.'); return; }
+    checkGenerateReady();
+    ta.value = '';
+    alert('workline 전체 적용 완료!\n' + summary.join(' · ') + '\n\n이제 \'필터링 & 미리보기\'를 누르세요.');
+    return;
+  }
+  alert('알 수 없는 데이터 형식입니다.');
 }
 
 function checkVerifyReady() {
