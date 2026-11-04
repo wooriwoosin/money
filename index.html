@@ -1576,9 +1576,45 @@ function loadWorklineKey(key, rows) {
   dbgLog(`[workline:${key}] ${rows.length}건 적용`);
 }
 
-// workline 북마클릿 데이터 붙여넣기
-//  - 통합 객체 {_meta,jajeom,hyeomnyeok,gaetong} → 3종 한번에 적재 (권장)
-//  - 단일 배열 → 드롭다운에서 고른 유형에 적재 (수동)
+// 통합 payload({_meta,jajeom,hyeomnyeok,gaetong})를 받아 3종 적재 + 생성탭 전환
+function importWorklinePayload(obj) {
+  if (!obj || typeof obj !== 'object') return 0;
+  if (obj._meta) {
+    if (obj._meta.today)  document.getElementById('todayDate').value  = obj._meta.today;
+    if (obj._meta.sunday) document.getElementById('sundayDate').value = obj._meta.sunday;
+  }
+  const summary = []; let total = 0;
+  ['jajeom', 'hyeomnyeok', 'gaetong'].forEach(k => {
+    if (Array.isArray(obj[k])) { loadWorklineKey(k, obj[k]); summary.push(`${k} ${obj[k].length}건`); total += obj[k].length; }
+  });
+  if (!summary.length) return 0;
+  checkGenerateReady();
+  // 사은품 파일 생성 탭으로 전환
+  try {
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => /파일 생성/.test(b.textContent));
+    if (btn) switchTab('tab-generate', btn);
+  } catch (e) {}
+  const msg = document.getElementById('generateMsg');
+  if (msg) { msg.textContent = `🔗 workline 자동적용: ${summary.join(' · ')} — '필터링 & 미리보기'를 누르세요`; msg.className = 'msg-text ok'; }
+  return total;
+}
+
+// workline → 앱 자동 전송 수신 (북마클릿이 postMessage로 보냄)
+window.addEventListener('message', function (ev) {
+  if (ev.origin !== 'https://workline.kr') return;           // 출처 검증: workline만 허용
+  const d = ev.data;
+  if (!d || d.type !== 'saeumpum-workline' || !d.payload) return;
+  const n = importWorklinePayload(d.payload);
+  try { if (ev.source) ev.source.postMessage({ type: 'saeumpum-ack', count: n }, ev.origin); } catch (e) {}
+  try { window.focus(); } catch (e) {}
+  alert(`🔗 workline에서 ${n}건 자동으로 불러왔습니다!\n'⚡ 필터링 & 미리보기'를 누르세요.`);
+});
+// 북마클릿이 연 창이면 "준비됨" 신호를 opener(workline)로 보냄
+try { if (window.opener) window.opener.postMessage({ type: 'saeumpum-ready' }, 'https://workline.kr'); } catch (e) {}
+
+// workline 북마클릿 데이터 붙여넣기 (수동 백업 경로)
+//  - 통합 객체 {_meta,jajeom,hyeomnyeok,gaetong} → 3종 한번에 적재
+//  - 단일 배열 → 드롭다운에서 고른 유형에 적재
 function applyWorkline() {
   const ta  = document.getElementById('worklinePaste');
   const txt = (ta.value || '').trim();
@@ -1600,18 +1636,10 @@ function applyWorkline() {
 
   // 통합 객체
   if (parsed && typeof parsed === 'object') {
-    if (parsed._meta) {
-      if (parsed._meta.today)  document.getElementById('todayDate').value  = parsed._meta.today;
-      if (parsed._meta.sunday) document.getElementById('sundayDate').value = parsed._meta.sunday;
-    }
-    const summary = [];
-    ['jajeom', 'hyeomnyeok', 'gaetong'].forEach(k => {
-      if (Array.isArray(parsed[k])) { loadWorklineKey(k, parsed[k]); summary.push(`${k} ${parsed[k].length}건`); }
-    });
-    if (!summary.length) { alert('자점/협력/개통 데이터가 없습니다. 북마클릿 결과를 다시 확인해주세요.'); return; }
-    checkGenerateReady();
+    const n = importWorklinePayload(parsed);
+    if (!n) { alert('자점/협력/개통 데이터가 없습니다. 북마클릿 결과를 다시 확인해주세요.'); return; }
     ta.value = '';
-    alert('workline 전체 적용 완료!\n' + summary.join(' · ') + '\n\n이제 \'필터링 & 미리보기\'를 누르세요.');
+    alert(`workline 전체 적용 완료! (${n}건)\n이제 '필터링 & 미리보기'를 누르세요.`);
     return;
   }
   alert('알 수 없는 데이터 형식입니다.');
