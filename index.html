@@ -1860,6 +1860,10 @@ function processAndGenerate() {
       // 개통 전용: 접수경로 = 협력점
       const gyeonno = s(row['접수경로']).trim();
       if (!gyeonno.includes('협력점')) { excluded.push({ row, source:'개통', reason:`접수경로 불일치 — 협력점만 해당 (현재: ${gyeonno})`, reasonType:'개통' }); continue; }
+      // 우신기술사업부는 접수경로가 협력점으로 뜨지만 실제는 자점 → 개통에서 제외
+      if (s(row['협력점']).includes('우신기술사업부') || s(row['상부점']).includes('우신기술사업부')) {
+        excluded.push({ row, source:'개통', reason:'우신기술사업부 (자점) — 개통 대상 아님', reasonType:'개통' }); continue;
+      }
       // 개통 전용: 지급예정일 없어야 함 (있으면 협력파일 중복)
       const jigeup = s(row['지급예정']).trim();
       if (jigeup && jigeup !== '' && jigeup !== '-' && jigeup !== '0') { excluded.push({ row, source:'개통', reason:`협력파일 중복 — 지급예정일 이미 등록됨 (${jigeup.slice(0,10)})`, reasonType:'개통' }); continue; }
