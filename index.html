@@ -1600,12 +1600,18 @@ function importWorklinePayload(obj) {
 }
 
 // workline → 앱 자동 전송 수신 (북마클릿이 postMessage로 보냄)
+let _wlLastImport = 0;
 window.addEventListener('message', function (ev) {
   if (ev.origin !== 'https://workline.kr') return;           // 출처 검증: workline만 허용
   const d = ev.data;
   if (!d || d.type !== 'saeumpum-workline' || !d.payload) return;
+  // ack 먼저 보내서 북마클릿의 재전송을 즉시 멈춤
+  try { if (ev.source) ev.source.postMessage({ type: 'saeumpum-ack' }, ev.origin); } catch (e) {}
+  // 중복 전송(재시도) 무시 — 3초 이내 반복 수신은 스킵
+  const now = Date.now();
+  if (now - _wlLastImport < 3000) return;
+  _wlLastImport = now;
   const n = importWorklinePayload(d.payload);
-  try { if (ev.source) ev.source.postMessage({ type: 'saeumpum-ack', count: n }, ev.origin); } catch (e) {}
   try { window.focus(); } catch (e) {}
   alert(`🔗 workline에서 ${n}건 자동으로 불러왔습니다!\n'⚡ 필터링 & 미리보기'를 누르세요.`);
 });
