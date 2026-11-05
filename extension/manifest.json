@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "사은품 입금 데이터 가져오기 (workline)",
+  "version": "1.0",
+  "description": "workline에서 자점/협력/개통 사은품 입금 데이터를 수집해 사은품 앱으로 자동 전송합니다.",
+  "host_permissions": [
+    "https://workline.kr/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://workline.kr/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
