@@ -1,14 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "사은품 입금 데이터 가져오기 (workline)",
-  "version": "1.0",
-  "description": "workline에서 자점/협력/개통 사은품 입금 데이터를 수집해 사은품 앱으로 자동 전송합니다.",
+  "name": "사은품 입금 데이터 가져오기",
+  "version": "2.0",
+  "description": "사은품 앱에서 버튼 클릭 → 백그라운드로 workline 데이터를 수집해 앱에 자동 입력합니다.",
   "host_permissions": [
     "https://workline.kr/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://workline.kr/*"],
+      "matches": [
+        "https://wooriwoosin.github.io/money/*",
+        "https://wooriwoosin.github.io/money"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
