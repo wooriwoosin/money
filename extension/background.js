@@ -1,29 +1,41 @@
-// 백그라운드: workline API를 쿠키와 함께 조회 (host_permissions 덕분에 인증된 요청 가능)
+// 백그라운드: workline '엑셀 내보내기(export)'를 대신 실행 → xlsx 받아 파싱 → 앱에 전달
+// 상세조회(unmask)/목록조회를 안 해서 봇 제한을 아예 안 거치고, 수동 엑셀과 동일한 데이터.
+importScripts('xlsx.full.min.js');
+
 const WL = 'https://workline.kr';
-
-// ── 봇 감지 회피용 요청 간격 (workline 제한: 상세 20건/10초, 목록 20번/5초) ──
-// "요청 시작" 간격을 보장(네트워크 시간 포함) → 안전하면서 빠름.
-const DETAIL_MIN = 600;  // 상세 시작 간격 → 최대 ~17건/10초 (한도 20)
-const LIST_MIN   = 400;  // 목록 시작 간격 → 최대 ~13번/5초 (한도 20)
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function getJSON(u) {
-  return fetch(u, { credentials: 'include', headers: { 'Accept': 'application/json' } }).then(r => r.json());
-}
-// 시작 간격 기반 레이트리미터 (직전 요청 시작 후 최소 minMs 경과 보장)
-let _lastDetail = 0, _lastList = 0;
-async function getDetail(u) { const w = DETAIL_MIN - (Date.now() - _lastDetail); if (w > 0) await sleep(w); _lastDetail = Date.now(); return getJSON(u); }
-async function getList(u)   { const w = LIST_MIN   - (Date.now() - _lastList);   if (w > 0) await sleep(w); _lastList   = Date.now(); return getJSON(u); }
+function getJSON(u) { return fetch(u, { credentials: 'include', headers: { 'Accept': 'application/json' } }).then(r => r.json()); }
 function pad(n) { return String(n).padStart(2, '0'); }
 function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 
-// 상세조회 없이 목록 데이터만으로 걸러낼 수 있는 조건 (대량이체 비대상 제거 → 상세조회 횟수 감소)
-function eligible(L) {
-  if ((L.openStatus || '') !== '개통완료') return false;
-  if ((L.payTo || '') !== '웨이브넷 지급') return false;
-  const pd = (L.payDone || '').trim();
-  if (pd && pd !== '-' && pd !== '0') return false;
-  return true;
+// 엑셀 바이너리 → 행 배열 (앱의 parseNormalXls와 동일: type array, defval '', raw false, 헤더 trim)
+function parseXlsxBuf(buf) {
+  const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+  return raw.map(row => { const o = {}; Object.keys(row).forEach(k => { o[String(k).trim()] = row[k]; }); return o; });
+}
+
+// 한 필터에 대해: 내보내기 생성 → 완료 대기 → 다운로드 → 파싱
+async function exportFilter(def, onProg) {
+  const c = await getJSON(WL + '/api/orders/export?size=10000&history=1&' + def.q);
+  const jobId = c && c.job && c.job.jobId;
+  if (!jobId) throw new Error(def.key + ' 내보내기 생성 실패');
+  let job = (c && c.job) || {};
+  for (let t = 0; t < 90 && !(job.status === 'done' && job.downloadable); t++) {
+    await sleep(700);
+    const pj = await getJSON(WL + '/api/orders/export-jobs/' + jobId);
+    job = (pj && pj.job) || {};
+    if (job.error) throw new Error(def.key + ' 내보내기 오류: ' + job.error);
+    onProg(def.key + ' 내보내기 ' + (job.percent || 0) + '%');
+  }
+  if (!(job.status === 'done' && job.downloadable)) throw new Error(def.key + ' 내보내기 시간초과');
+  onProg(def.key + ' 파일 받는 중...');
+  const resp = await fetch(WL + '/api/orders/export-jobs/' + jobId + '/download', { credentials: 'include' });
+  const buf = await resp.arrayBuffer();
+  const rows = parseXlsxBuf(buf);
+  onProg(def.key + ' 완료 (' + rows.length + '건)');
+  return rows;
 }
 
 async function collect(onProg) {
@@ -35,21 +47,7 @@ async function collect(onProg) {
     throw new Error('workline 로그인이 필요합니다. 같은 브라우저에서 workline.kr에 로그인한 뒤 다시 눌러주세요.');
   }
 
-  // 은행 코드맵
-  const bankMap = {};
-  try {
-    const bj = await getJSON(WL + '/api/codes/bank');
-    ((bj && bj.data) || []).forEach(b => {
-      if (b == null) return;
-      const nm = b.name || b.label || b.text || '';
-      if (b.id != null) bankMap[String(b.id)] = nm;
-      if (b.code != null) bankMap[String(b.code)] = nm;
-    });
-  } catch (e) {}
-  const bankName = c => (c == null ? '' : (bankMap[String(c)] || ('코드' + c)));
-  const tagPart = nm => { nm = nm || ''; const k = nm.indexOf('/'); return k >= 0 ? nm.slice(k) : ''; };
-
-  // 날짜 자동 계산
+  // 날짜 자동 계산 (자점=오늘, 협력=이번주 일요일, 개통=전월1일~전일)
   const now = new Date();
   const today = ymd(now);
   const sd = new Date(now); sd.setDate(now.getDate() + ((7 - now.getDay()) % 7)); const sunday = ymd(sd);
@@ -62,72 +60,11 @@ async function collect(onProg) {
     { key: 'gaetong', q: 'dateField=goods6&dateFrom=' + prevM1 + '&dateTo=' + yesterday + common + '&courseId=14' }
   ];
 
-  // 목록 조회 (필터별, 페이징) — 목록 요청 사이에 간격을 둬 "목록 폭주" 회피
-  const buckets = { jajeom: [], hyeomnyeok: [], gaetong: [] };
-  let listCalls = 0;
+  const out = { _meta: { today, sunday }, jajeom: [], hyeomnyeok: [], gaetong: [] };
   for (const def of defs) {
-    let acc = [], page = 1;
-    while (true) {
-      const j = await getList(WL + '/api/orders?size=200&page=' + page + '&' + def.q);
-      listCalls++;
-      const d = (j && j.data) || {}; const it = d.items || []; acc = acc.concat(it);
-      const p = d.pagination || {}; const tp = p.totalPages || 1; const tot = p.total || it.length;
-      onProg(def.key + ' 조회 ' + acc.length + ' / ' + tot);
-      if (page < tp && page < 30) { page++; continue; }
-      break;
-    }
-    // 상세조회 전에 미리 거르기 (개통완료 + 웨이브넷지급 + 지급완료 없음)
-    buckets[def.key] = acc.filter(eligible);
+    out[def.key] = await exportFilter(def, onProg);
   }
-
-  // 중복 제거 (상세조회 대상)
-  const uniq = [], seen = {};
-  ['jajeom', 'hyeomnyeok', 'gaetong'].forEach(k => buckets[k].forEach(it => {
-    if (it && it.id != null && !seen[it.id]) { seen[it.id] = 1; uniq.push(it); }
-  }));
-
-  // unmask — "상세 폭주" 회피: 순차 처리 + 시작 간격(DETAIL_MIN)
-  const umap = {};
-  for (let i = 0; i < uniq.length; i++) {
-    const it = uniq[i];
-    try { const j = await getDetail(WL + '/api/orders/' + it.id + '/unmask?variant=a'); umap[it.id] = (j && j.data) || {}; }
-    catch (e) { umap[it.id] = {}; }
-    const eta = Math.ceil((uniq.length - (i + 1)) * DETAIL_MIN / 1000);
-    onProg('상세조회 ' + (i + 1) + ' / ' + uniq.length + ' (과부하 방지 · 약 ' + eta + '초 남음)');
-  }
-
-  // 행 생성 (앱 컬럼명)
-  const build = list => list.map(L => {
-    L = L || {}; const U = umap[L.id] || {}; const C = U.customer || {};
-    const realName = C.name || ((L.customerName || '').split('/')[0]);
-    const gg = realName + tagPart(L.customerName);
-    // 상품명 = 통신사 + 상품 (원래 엑셀처럼 통신사도 함께 표시)
-    const tel = L.telecom || '', pn = L.productName || '';
-    let prod = (tel === '모바일') ? ((pn ? pn + ' ' : '') + '모바일') : ((tel ? tel + ' ' : '') + pn);
-    if (!prod) prod = tel || pn;
-    return {
-      '고객명': gg,
-      '상품명': prod,
-      '협력점': L.partner || '',
-      '사은품은행': bankName(U.spBankCode),
-      '사은품계좌': U.spBankAccount || '',
-      '현금': (U.spPrice != null ? U.spPrice : (L.cash || '')),
-      '사은품예금주': U.spBankName || '',
-      '사은품주민번호': U.spBankJumin || '',
-      '명의자 연락처': C.mobile || L.mobile || '',
-      '상부점': L.upperPoint || '',
-      '개통일': (L.openDate || '').slice(0, 10),
-      '개통기한': (L.openDeadline || '').slice(0, 10),
-      '개통상태': L.openStatus || '',
-      '접수경로': L.receiptRoute || '',
-      '지급예정': L.payAdjust || '',
-      '지급완료': L.payDone || '',
-      '사은품 지급처': L.payTo || '',
-      '접점코드': L.contactCode || ''
-    };
-  });
-
-  return { _meta: { today, sunday }, jajeom: build(buckets.jajeom), hyeomnyeok: build(buckets.hyeomnyeok), gaetong: build(buckets.gaetong) };
+  return out;
 }
 
 chrome.runtime.onConnect.addListener(port => {
