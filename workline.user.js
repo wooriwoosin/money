@@ -123,7 +123,10 @@
       var L = list[i] || {}; var U = umap[L.id] || {}; var C = U.customer || {};
       var realName = C.name || (L.customerName || '').split('/')[0];
       var gg = realName + tagPart(L.customerName);
-      var prod = (L.telecom === '모바일') ? '모바일' : (L.productName || L.telecom || '');
+      // 상품명 = 통신사 + 상품 (원래 엑셀처럼 통신사도 함께 표시)
+      var tel = L.telecom || '', pn = L.productName || '';
+      var prod = (tel === '모바일') ? ((pn ? pn + ' ' : '') + '모바일') : ((tel ? tel + ' ' : '') + pn);
+      if (!prod) prod = tel || pn;
       rows.push({
         '고객명': gg,
         '상품명': prod,

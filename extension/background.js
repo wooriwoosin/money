@@ -99,7 +99,10 @@ async function collect(onProg) {
     L = L || {}; const U = umap[L.id] || {}; const C = U.customer || {};
     const realName = C.name || ((L.customerName || '').split('/')[0]);
     const gg = realName + tagPart(L.customerName);
-    const prod = (L.telecom === '모바일') ? '모바일' : (L.productName || L.telecom || '');
+    // 상품명 = 통신사 + 상품 (원래 엑셀처럼 통신사도 함께 표시)
+    const tel = L.telecom || '', pn = L.productName || '';
+    let prod = (tel === '모바일') ? ((pn ? pn + ' ' : '') + '모바일') : ((tel ? tel + ' ' : '') + pn);
+    if (!prod) prod = tel || pn;
     return {
       '고객명': gg,
       '상품명': prod,
