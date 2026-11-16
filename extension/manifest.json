@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "사은품 입금 데이터 가져오기",
-  "version": "2.0",
+  "version": "3.0",
   "description": "사은품 앱에서 버튼 클릭 → 백그라운드로 workline 데이터를 수집해 앱에 자동 입력합니다.",
   "host_permissions": [
     "https://workline.kr/*"
