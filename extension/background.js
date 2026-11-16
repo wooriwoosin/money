@@ -2,14 +2,18 @@
 const WL = 'https://workline.kr';
 
 // ── 봇 감지 회피용 요청 간격 (workline 제한: 상세 20건/10초, 목록 20번/5초) ──
-// 고정 간격이라 어떤 10초(상세)·5초(목록) 구간에서도 한도 밑으로 보장됨.
-const DETAIL_MS = 700;   // 상세조회 간격 → 약 14건/10초 (한도 20)
-const LIST_MS   = 450;   // 목록조회 간격 → 약 12번/5초 (한도 20)
+// "요청 시작" 간격을 보장(네트워크 시간 포함) → 안전하면서 빠름.
+const DETAIL_MIN = 600;  // 상세 시작 간격 → 최대 ~17건/10초 (한도 20)
+const LIST_MIN   = 400;  // 목록 시작 간격 → 최대 ~13번/5초 (한도 20)
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function getJSON(u) {
   return fetch(u, { credentials: 'include', headers: { 'Accept': 'application/json' } }).then(r => r.json());
 }
+// 시작 간격 기반 레이트리미터 (직전 요청 시작 후 최소 minMs 경과 보장)
+let _lastDetail = 0, _lastList = 0;
+async function getDetail(u) { const w = DETAIL_MIN - (Date.now() - _lastDetail); if (w > 0) await sleep(w); _lastDetail = Date.now(); return getJSON(u); }
+async function getList(u)   { const w = LIST_MIN   - (Date.now() - _lastList);   if (w > 0) await sleep(w); _lastList   = Date.now(); return getJSON(u); }
 function pad(n) { return String(n).padStart(2, '0'); }
 function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 
@@ -64,8 +68,7 @@ async function collect(onProg) {
   for (const def of defs) {
     let acc = [], page = 1;
     while (true) {
-      if (listCalls > 0) await sleep(LIST_MS);
-      const j = await getJSON(WL + '/api/orders?size=200&page=' + page + '&' + def.q);
+      const j = await getList(WL + '/api/orders?size=200&page=' + page + '&' + def.q);
       listCalls++;
       const d = (j && j.data) || {}; const it = d.items || []; acc = acc.concat(it);
       const p = d.pagination || {}; const tp = p.totalPages || 1; const tot = p.total || it.length;
@@ -83,15 +86,14 @@ async function collect(onProg) {
     if (it && it.id != null && !seen[it.id]) { seen[it.id] = 1; uniq.push(it); }
   }));
 
-  // unmask — "상세 폭주" 회피: 순차 처리 + 고정 간격(DETAIL_MS)
+  // unmask — "상세 폭주" 회피: 순차 처리 + 시작 간격(DETAIL_MIN)
   const umap = {};
   for (let i = 0; i < uniq.length; i++) {
     const it = uniq[i];
-    try { const j = await getJSON(WL + '/api/orders/' + it.id + '/unmask?variant=a'); umap[it.id] = (j && j.data) || {}; }
+    try { const j = await getDetail(WL + '/api/orders/' + it.id + '/unmask?variant=a'); umap[it.id] = (j && j.data) || {}; }
     catch (e) { umap[it.id] = {}; }
-    const eta = Math.ceil((uniq.length - (i + 1)) * DETAIL_MS / 1000);
+    const eta = Math.ceil((uniq.length - (i + 1)) * DETAIL_MIN / 1000);
     onProg('상세조회 ' + (i + 1) + ' / ' + uniq.length + ' (과부하 방지 · 약 ' + eta + '초 남음)');
-    if (i < uniq.length - 1) await sleep(DETAIL_MS);
   }
 
   // 행 생성 (앱 컬럼명)

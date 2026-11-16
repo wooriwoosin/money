@@ -50,9 +50,12 @@
   function pad(n) { return String(n).padStart(2, '0'); }
   function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 
-  // 봇 감지 회피용 요청 간격 (workline 제한: 상세 20건/10초, 목록 20번/5초)
-  var DETAIL_MS = 700, LIST_MS = 450;
+  // 봇 감지 회피용 "요청 시작" 간격 (workline 제한: 상세 20건/10초, 목록 20번/5초)
+  var DETAIL_MIN = 600, LIST_MIN = 400;
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  var _lastDetail = 0, _lastList = 0;
+  function getDetail(u) { var w = DETAIL_MIN - (Date.now() - _lastDetail); return (w > 0 ? sleep(w) : Promise.resolve()).then(function () { _lastDetail = Date.now(); return getJSON(u); }); }
+  function getList(u) { var w = LIST_MIN - (Date.now() - _lastList); return (w > 0 ? sleep(w) : Promise.resolve()).then(function () { _lastList = Date.now(); return getJSON(u); }); }
   // 상세조회 없이 목록만으로 거를 수 있는 조건 (상세조회 횟수 감소)
   function eligible(L) {
     if ((L.openStatus || '') !== '개통완료') return false;
@@ -82,9 +85,7 @@
   function loadDef(def) {
     var acc = [];
     function pg(page) {
-      return Promise.resolve(listCalls > 0 ? sleep(LIST_MS) : null).then(function () {
-        return getJSON(O + '/api/orders?size=200&page=' + page + '&' + def.q);
-      }).then(function (j) {
+      return getList(O + '/api/orders?size=200&page=' + page + '&' + def.q).then(function (j) {
         listCalls++;
         var d = (j && j.data) || {}; var it = d.items || []; acc = acc.concat(it);
         var p = d.pagination || {}; var tp = p.totalPages || 1; var tot = p.total || it.length;
@@ -97,20 +98,20 @@
   }
 
   var umap = {};
-  // 상세조회: 순차 + 고정 간격(DETAIL_MS)으로 "상세 폭주" 회피
+  // 상세조회: 순차 + 시작 간격(DETAIL_MIN)으로 "상세 폭주" 회피
   function unmaskAll(list) {
     var i = 0, n = list.length;
     function next() {
       if (i >= n) return Promise.resolve();
       var it = list[i];
-      return getJSON(O + '/api/orders/' + it.id + '/unmask?variant=a')
+      return getDetail(O + '/api/orders/' + it.id + '/unmask?variant=a')
         .then(function (j) { umap[it.id] = (j && j.data) || {}; })
         .catch(function () { umap[it.id] = {}; })
         .then(function () {
           i++;
-          var eta = Math.ceil((n - i) * DETAIL_MS / 1000);
+          var eta = Math.ceil((n - i) * DETAIL_MIN / 1000);
           setp('상세조회 ' + i + ' / ' + n + ' (과부하 방지 · 약 ' + eta + '초 남음)');
-          if (i < n) return sleep(DETAIL_MS).then(next);
+          if (i < n) return next();
           return null;
         });
     }
