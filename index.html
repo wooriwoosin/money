@@ -475,7 +475,7 @@
        style="text-decoration:none;background:var(--accent);color:#fff;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;white-space:nowrap;">⬇️ 확장앱</a>
     <a href="workline_bookmarklet.txt" download
        style="text-decoration:none;background:#fff;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;white-space:nowrap;">⬇️ 북마크</a>
-    <span style="font-size:10px;color:var(--text2);white-space:nowrap;" title="workline 가져오기 도구 버전">v3.1 · 2026-11-25</span>
+    <span style="font-size:10px;color:var(--text2);white-space:nowrap;" title="workline 가져오기 도구 버전">v3.2 · 2026-11-25</span>
   </div>
   <div class="date-badge" id="todayBadge" style="margin-left:12px;">TODAY: ----</div>
 </header>
@@ -2128,9 +2128,14 @@ function renderSangbuButtons() {
 
 // 공통 필터: 개통완료 + 웨이브넷 지급
 // 대성 건 판별: 협력점에 '상권사업부' 포함 OR 상부점에 '대성' 포함
+// 대성 법인 건으로 처리할 추가 키워드 (협력점/고객명/상부점 어디에 있든 매칭)
+// 새 대성 건이 나오면 여기에 추가하면 됨
+const DAESUNG_KEYS = ['인덕원스노우안과'];
 function isDaesung(row) {
   const hyeomnyeokjeom = s(row['협력점']).trim();
   const sangbujeom     = s(row['상부점']).trim();
+  const gogaek         = s(row['고객명']).trim();
+  if (DAESUNG_KEYS.some(k => k && (hyeomnyeokjeom.includes(k) || gogaek.includes(k) || sangbujeom.includes(k)))) return true;
   return hyeomnyeokjeom.includes('상권사업부') || sangbujeom.includes('대성');
 }
 
