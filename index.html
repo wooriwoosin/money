@@ -475,7 +475,7 @@
        style="text-decoration:none;background:var(--accent);color:#fff;border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;white-space:nowrap;">⬇️ 확장앱</a>
     <a href="workline_bookmarklet.txt" download
        style="text-decoration:none;background:#fff;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:5px 11px;font-size:11px;font-weight:700;white-space:nowrap;">⬇️ 북마크</a>
-    <span style="font-size:10px;color:var(--text2);white-space:nowrap;" title="workline 가져오기 도구 버전">v3.2 · 2026-11-25</span>
+    <span style="font-size:10px;color:var(--text2);white-space:nowrap;" title="workline 가져오기 도구 버전">v3.3 · 2026-11-25</span>
   </div>
   <div class="date-badge" id="todayBadge" style="margin-left:12px;">TODAY: ----</div>
 </header>
@@ -1751,9 +1751,10 @@ function rowToTransfer(row, source) {
     }
 
     // 대성 건: 접점코드가 '대성(상권사업부)' 아니면 오류 (1차 데이터 입력 시 확인)
+    // 단, 이름(키워드) 기반 대성 건은 접점코드가 달라서 정상이므로 검사 제외
     if (isDaesung(row)) {
       const jeopjeomCode = s(row['접점코드']).trim();
-      if (!jeopjeomCode.includes('대성(상권사업부)')) {
+      if (!isDaesungByKey(row) && !jeopjeomCode.includes('대성(상권사업부)')) {
         warnings.push({
           type: '접점코드 오류',
           msg: `대성 건인데 접점코드 미등록 (현재: '${jeopjeomCode || '없음'}', 필요: '대성(상권사업부)')`
@@ -2131,11 +2132,17 @@ function renderSangbuButtons() {
 // 대성 법인 건으로 처리할 추가 키워드 (협력점/고객명/상부점 어디에 있든 매칭)
 // 새 대성 건이 나오면 여기에 추가하면 됨
 const DAESUNG_KEYS = ['인덕원스노우안과'];
-function isDaesung(row) {
+// 이름(키워드) 기반 대성 건인지 — 이 경우 접점코드 '대성(상권사업부)' 검사는 제외
+function isDaesungByKey(row) {
   const hyeomnyeokjeom = s(row['협력점']).trim();
   const sangbujeom     = s(row['상부점']).trim();
   const gogaek         = s(row['고객명']).trim();
-  if (DAESUNG_KEYS.some(k => k && (hyeomnyeokjeom.includes(k) || gogaek.includes(k) || sangbujeom.includes(k)))) return true;
+  return DAESUNG_KEYS.some(k => k && (hyeomnyeokjeom.includes(k) || gogaek.includes(k) || sangbujeom.includes(k)));
+}
+function isDaesung(row) {
+  if (isDaesungByKey(row)) return true;
+  const hyeomnyeokjeom = s(row['협력점']).trim();
+  const sangbujeom     = s(row['상부점']).trim();
   return hyeomnyeokjeom.includes('상권사업부') || sangbujeom.includes('대성');
 }
 
